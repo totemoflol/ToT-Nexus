@@ -1,40 +1,33 @@
-local mode = "Devs" -- Owner, Devs, Premium
+-- WhitelistedTaters.lua | Premium whitelist (Diamond = always, others by mode)
+local mode = "Devs" -- Owner | Devs | Premium
 
-local DiamondRank = {
-    [4874964037] = true, -- bjdhcmain
-    [1242588417] = true  -- durianlover9
+local Ranks = {
+    Diamond = {
+        [4874964037] = true, -- bjdhcmain
+        [1242588417] = true, -- durianlover9
+    },
+    Emerald = {
+        [3076753381] = true, -- aaaionj2
+        [4993924900] = true, -- urmotherlah6
+    },
+    Gold = {},
 }
 
-local EmeraldRank = {
-    [3076753381] = true, -- aaaionj2
-    [4993924900] = true  -- urmotherlah6
-}
-
-local GoldRank = {
-}
-
+local activeRanks = { Diamond = true }
+if mode == "Devs" then
+    activeRanks.Emerald = true
+elseif mode == "Premium" then
+    activeRanks.Emerald = true
+    activeRanks.Gold = true
+end
 
 local TaterWhitelist = {}
-local function addRank(rankTable)
-    for id, _ in pairs(rankTable) do
-        TaterWhitelist[id] = true
+for rank, active in pairs(activeRanks) do
+    if active then
+        for id in pairs(Ranks[rank]) do
+            TaterWhitelist[id] = true
+        end
     end
 end
 
--- always include diamond
-addRank(DiamondRank)
-
--- add based on mode
-if mode == "Owner" then
-
-elseif mode == "Devs" then
-    addRank(EmeraldRank)
-
-elseif mode == "Premium" then
-    addRank(EmeraldRank)
-    addRank(GoldRank)
-end
-
--- set global
 getgenv().whitelistedtaters = TaterWhitelist
-print("67")

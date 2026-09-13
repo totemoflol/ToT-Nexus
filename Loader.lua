@@ -10,7 +10,7 @@ local StarterGui = game:GetService("StarterGui")
 local PlaceId = game.PlaceId
 local GameId = game.GameId
 
-local BASE = "https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main"
+local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
 -- Registered games: key = main PlaceId
 local Games = {
