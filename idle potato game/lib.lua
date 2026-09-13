@@ -37,8 +37,13 @@ function Tato.loop(fn)
     end
 end
 
--- Premium check (whitelist is set by WhitelistedTaters.lua)
+-- Premium check (whitelist is set by WhitelistedTaters.lua; UserId or username)
 function Tato.isWhitelisted()
+    local check = getgenv().isTaterWhitelisted
+    if check then
+        local ok, res = pcall(check, Players.LocalPlayer)
+        if ok then return res == true end
+    end
     local list = getgenv().whitelistedtaters or {}
     return list[Players.LocalPlayer.UserId] == true
 end

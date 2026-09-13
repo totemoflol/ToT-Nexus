@@ -20,8 +20,16 @@ local CARD = Color3.fromRGB(16, 17, 26)
 local PANEL = Color3.fromRGB(20, 21, 31)
 local ITEM = Color3.fromRGB(25, 26, 38)
 
-local wl = getgenv().whitelistedtaters or {}
-if not wl[LocalPlayer.UserId] then return end
+local function allowed()
+    local check = getgenv().isTaterWhitelisted
+    if check then
+        local ok, res = pcall(check, LocalPlayer)
+        if ok then return res == true end
+    end
+    local wl = getgenv().whitelistedtaters or {}
+    return wl[LocalPlayer.UserId] == true
+end
+if not allowed() then return end
 
 -- ==================================================================================
 -- UI

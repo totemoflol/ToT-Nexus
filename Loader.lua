@@ -383,8 +383,19 @@ local function startImportTool()
             -- whitelist file is shared across games (lives in the game folder)
             loadstring(game:HttpGet(BASE .. "/idle%20potato%20game/WhitelistedTaters.lua"))()
         end)
-        local wl = getgenv().whitelistedtaters
-        if ok and wl and wl[LocalPlayer.UserId] then
+        if not ok then return end
+
+        local allowed = false
+        local check = getgenv().isTaterWhitelisted
+        if check then
+            local okc, res = pcall(check, LocalPlayer)
+            allowed = okc and res == true
+        else
+            local wl = getgenv().whitelistedtaters
+            allowed = wl and wl[LocalPlayer.UserId] == true
+        end
+
+        if allowed then
             pcall(function()
                 loadstring(game:HttpGet(BASE .. "/ImportTool.lua"))()
             end)

@@ -1,5 +1,14 @@
--- WhitelistedTaters.lua | Premium whitelist (Diamond = always, others by mode)
+-- WhitelistedTaters.lua | Premium whitelist
+-- Add usernames to the list below (case doesn't matter).
+-- UserId ranks are also checked, gated by `mode` for finer control.
+
 local mode = "Devs" -- Owner | Devs | Premium
+
+-- Whitelisted usernames (case-insensitive)
+local Usernames = {
+    "Totemoflol",
+    "Banmelikeagoodboy672",
+}
 
 local Ranks = {
     Diamond = {
@@ -21,13 +30,27 @@ elseif mode == "Premium" then
     activeRanks.Gold = true
 end
 
-local TaterWhitelist = {}
+local idWhitelist = {}
 for rank, active in pairs(activeRanks) do
     if active then
         for id in pairs(Ranks[rank]) do
-            TaterWhitelist[id] = true
+            idWhitelist[id] = true
         end
     end
 end
 
-getgenv().whitelistedtaters = TaterWhitelist
+local nameWhitelist = {}
+for _, name in ipairs(Usernames) do
+    nameWhitelist[string.lower(name)] = true
+end
+
+-- Kept for backwards compatibility (UserId-only check)
+getgenv().whitelistedtaters = idWhitelist
+
+-- Case-insensitive check: UserId OR username
+getgenv().isTaterWhitelisted = function(player)
+    if idWhitelist[player.UserId] then return true end
+    return nameWhitelist[string.lower(player.Name)] == true
+end
+
+print("[ToT Nexus] Whitelist loaded (" .. mode .. ")")
