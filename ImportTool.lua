@@ -234,6 +234,8 @@ local function runExport()
     else
         setStatus("Dump ready (" .. #lastDump .. " chars)", ACCENT2)
     end
+
+    return lastDump
 end
 
 makeButton("Run Export", 20, 150, ACCENT, TEXT).MouseButton1Click:Connect(function()
