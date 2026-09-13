@@ -39,9 +39,9 @@ Gamedata.Core = {
 -- SELLING
 -- =====================================================================
 Gamedata.Selling = {
-    "SellAllGoldenPotatoes", -- C2S, likely no args -- BETTER than reading the GUI counter
-    "SellAllPotatoes",       -- C2S
-    "SellPotatoes",          -- C2S, presumably amount
+    "SellAllGoldenPotatoes", -- C2S, REQUIRES GAMEPASS (do not use)
+    "SellAllPotatoes",       -- C2S, REQUIRES GAMEPASS (do not use)
+    "SellPotatoes",          -- C2S, amount (normal potatoes -- used by Auto Sell Potatoes)
     "AutoSellTriggered",     -- S2C
     "SellComplete",          -- S2C
 }
