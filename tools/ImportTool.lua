@@ -48,7 +48,7 @@ end)
 local card = Instance.new("CanvasGroup")
 card.AnchorPoint = Vector2.new(0.5, 0.5)
 card.Position = UDim2.fromScale(0.5, 0.5)
-card.Size = UDim2.fromOffset(520, 400)
+card.Size = UDim2.fromOffset(520, 424)
 card.BackgroundColor3 = CARD
 card.GroupTransparency = 1
 card.BorderSizePixel = 0
@@ -95,7 +95,7 @@ Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
 
 local outputFrame = Instance.new("ScrollingFrame")
 outputFrame.Position = UDim2.fromOffset(20, 64)
-outputFrame.Size = UDim2.new(1, -40, 0, 248)
+outputFrame.Size = UDim2.new(1, -40, 0, 232)
 outputFrame.BackgroundColor3 = PANEL
 outputFrame.BorderSizePixel = 0
 outputFrame.ScrollBarThickness = 4
@@ -124,10 +124,10 @@ output.TextWrapped = true
 output.Text = 'Press "Run Export"'
 output.Parent = outputFrame
 
-local function makeButton(text, x, w, bg, fg)
+local function makeButton(text, x, w, bg, fg, y)
     local b = Instance.new("TextButton")
-    b.Position = UDim2.fromOffset(x, 322)
-    b.Size = UDim2.fromOffset(w, 40)
+    b.Position = UDim2.fromOffset(x, y)
+    b.Size = UDim2.fromOffset(w, 38)
     b.BackgroundColor3 = bg
     b.Font = Enum.Font.GothamBold
     b.TextSize = 14
@@ -135,7 +135,7 @@ local function makeButton(text, x, w, bg, fg)
     b.Text = text
     b.Parent = card
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
-    if bg ~= ACCENT then
+    if bg ~= ACCENT and bg ~= ACCENT2 then
         local s = Instance.new("UIStroke", b)
         s.Color = Color3.fromRGB(58, 60, 92)
         s.Transparency = 0.4
@@ -145,7 +145,7 @@ local function makeButton(text, x, w, bg, fg)
 end
 
 local status = Instance.new("TextLabel")
-status.Position = UDim2.fromOffset(20, 370)
+status.Position = UDim2.fromOffset(20, 392)
 status.Size = UDim2.new(1, -40, 0, 16)
 status.BackgroundTransparency = 1
 status.Font = Enum.Font.Gotham
@@ -161,7 +161,9 @@ local function setStatus(msg, color)
 end
 
 -- ==================================================================================
--- Export (TND1 compact blob via tools/codec.lua; plain text fallback)
+-- Export (TND2 compact blob via tools/codec.lua; plain text fallback)
+-- Quick Export: ReplicatedStorage + workspace
+-- Deep Export:  DEX-style scan of every service (game:GetChildren + GetService)
 -- ==================================================================================
 local CODEC_URL = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main/tools/codec.lua"
 
@@ -178,35 +180,81 @@ local function gameName()
     return "Place " .. game.PlaceId
 end
 
-local function runExport()
-    local remotes = {}
-    local events, funcs = 0, 0
-    local roots = { game:GetService("ReplicatedStorage"), workspace }
+-- Services that only hold client-side noise
+local SKIP_SERVICES = {
+    CoreGui = true,
+    CorePackages = true,
+    RobloxReplicatedStorage = true,
+}
 
-    for _, root in ipairs(roots) do
+local function runExport(mode)
+    local remotes = {}
+    local seen = {}
+    local events, funcs = 0, 0
+
+    local function collect(root)
         pcall(function()
             for _, obj in ipairs(root:GetDescendants()) do
                 if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-                    remotes[#remotes + 1] = {
-                        path = obj:GetFullName(),
-                        name = obj.Name,
-                        isFunction = obj:IsA("RemoteFunction"),
-                    }
-                    if obj:IsA("RemoteFunction") then
-                        funcs = funcs + 1
-                    else
-                        events = events + 1
+                    local p = obj:GetFullName()
+                    if not seen[p] then
+                        seen[p] = true
+                        remotes[#remotes + 1] = {
+                            path = p,
+                            name = obj.Name,
+                            isFunction = obj:IsA("RemoteFunction"),
+                        }
+                        if obj:IsA("RemoteFunction") then
+                            funcs = funcs + 1
+                        else
+                            events = events + 1
+                        end
                     end
                 end
             end
         end)
     end
 
+    if mode == "deep" then
+        -- DEX-style: scan every service in the DataModel
+        local services, listed = {}, {}
+        for _, s in ipairs(game:GetChildren()) do
+            services[#services + 1] = s
+            listed[s] = true
+        end
+        for _, name in ipairs({
+            "ReplicatedStorage", "Workspace", "ReplicatedFirst", "Lighting",
+            "Players", "StarterGui", "StarterPack", "StarterPlayer",
+            "SoundService", "Chat", "TextChatService", "LocalizationService",
+        }) do
+            local ok, s = pcall(game.GetService, game, name)
+            if ok and s and not listed[s] then
+                listed[s] = true
+                services[#services + 1] = s
+            end
+        end
+
+        local scanned = 0
+        for _, s in ipairs(services) do
+            if not SKIP_SERVICES[s.Name] then
+                setStatus("Deep scan: " .. s.Name .. "...", MUTED)
+                collect(s)
+                scanned = scanned + 1
+                if scanned % 4 == 0 then
+                    task.wait() -- let the UI breathe
+                end
+            end
+        end
+    else
+        collect(game:GetService("ReplicatedStorage"))
+        collect(workspace)
+    end
+
     if codec then
         -- Compact TND2 blob (grouped + LZSS + base64) - decoded via tools/decode.lua
         lastDump = codec.encodeDump(gameName(), game.PlaceId, game.GameId, remotes)
         output.Text = table.concat({
-            gameName(),
+            gameName() .. "  [" .. (mode == "deep" and "deep" or "quick") .. "]",
             "Remotes: " .. #remotes .. "  (Events: " .. events .. ", Functions: " .. funcs .. ")",
             "Blob: " .. #lastDump .. " chars",
             "",
@@ -239,11 +287,17 @@ local function runExport()
     return lastDump
 end
 
-makeButton("Run Export", 20, 150, ACCENT, TEXT).MouseButton1Click:Connect(function()
-    lastDump = runExport()
+-- Row 1: exports
+makeButton("Quick Export", 20, 230, ACCENT, TEXT, 306).MouseButton1Click:Connect(function()
+    lastDump = runExport("quick")
 end)
 
-makeButton("Copy", 178, 130, ITEM, TEXT).MouseButton1Click:Connect(function()
+makeButton("Deep Export", 270, 230, ACCENT2, CARD, 306).MouseButton1Click:Connect(function()
+    lastDump = runExport("deep")
+end)
+
+-- Row 2: clipboard / file
+makeButton("Copy", 20, 225, ITEM, TEXT, 350).MouseButton1Click:Connect(function()
     if lastDump and setclipboard then
         setclipboard(lastDump)
         setStatus("Copied to clipboard", ACCENT2)
@@ -252,7 +306,7 @@ makeButton("Copy", 178, 130, ITEM, TEXT).MouseButton1Click:Connect(function()
     end
 end)
 
-makeButton("Save", 316, 130, ITEM, TEXT).MouseButton1Click:Connect(function()
+makeButton("Save", 275, 225, ITEM, TEXT, 350).MouseButton1Click:Connect(function()
     if not lastDump then
         setStatus("Run the export first", MUTED)
     elseif writefile then
