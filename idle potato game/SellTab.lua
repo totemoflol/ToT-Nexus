@@ -34,31 +34,53 @@ SellTab:CreateToggle({
     end),
 })
 
--- Sell all golden potatoes whenever the counter rises
+-- Sell all: reads the on-screen currency counters (game formats numbers,
+-- so plain tonumber() fails -- Tato.parseCount handles "1.5K"/"5QA" etc.)
 SellTab:CreateSection("Sell All")
 
-local selling = false
+local sellGold, sellPotatoes = false, false
+
 SellTab:CreateToggle({
     Name = "Auto Sell Golden Potatoes",
     CurrentValue = false,
     Flag = "AutoSellGolden",
-    Callback = function(state) selling = state end,
+    Callback = function(state) sellGold = state end,
+})
+
+SellTab:CreateToggle({
+    Name = "Auto Sell Potatoes",
+    CurrentValue = false,
+    Flag = "AutoSellPotatoes",
+    Callback = function(state) sellPotatoes = state end,
 })
 
 task.spawn(function()
     local player = game:GetService("Players").LocalPlayer
-    local goldLabel = player.PlayerGui:WaitForChild("PotatoGameGUI")
-        .Background.ClickerArea.ClickerContainer.CurrencyFrame
-        :WaitForChild("GoldenRow"):WaitForChild("GoldenCount")
+    local currency = Tato.waitForPath(player.PlayerGui,
+        "PotatoGameGUI", "Background", "ClickerArea", "ClickerContainer", "CurrencyFrame")
+    local goldLabel = Tato.waitForPath(currency, "GoldenRow", "GoldenCount")
+    local potatoLabel = Tato.waitForPath(currency, "PotatoRow", "PotatoCount")
 
     while true do
-        if selling then
-            local gold = tonumber(goldLabel.Text) or 0
+        local fired = false
+
+        if sellGold then
+            local gold = Tato.parseCount(goldLabel.Text)
             if gold > 0 then
                 Tato.fire("SellGoldenPotatoes", gold)
+                fired = true
             end
         end
-        task.wait(0.1)
+
+        if sellPotatoes then
+            local potatoes = Tato.parseCount(potatoLabel.Text)
+            if potatoes > 0 then
+                Tato.fire("SellPotatoes", potatoes)
+                fired = true
+            end
+        end
+
+        task.wait(fired and 0.25 or 0.1)
     end
 end)
 
