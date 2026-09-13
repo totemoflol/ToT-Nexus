@@ -376,6 +376,22 @@ end
 -- ==================================================================================
 print("[ToT Nexus] Loader starting")
 
+-- Import tool for whitelisted devs: chat "import" after load to dump remotes
+local function startImportTool()
+    task.spawn(function()
+        local ok = pcall(function()
+            -- whitelist file is shared across games (lives in the game folder)
+            loadstring(game:HttpGet(BASE .. "/idle%20potato%20game/WhitelistedTaters.lua"))()
+        end)
+        local wl = getgenv().whitelistedtaters
+        if ok and wl and wl[LocalPlayer.UserId] then
+            pcall(function()
+                loadstring(game:HttpGet(BASE .. "/ImportTool.lua"))()
+            end)
+        end
+    end)
+end
+
 local splashOk, splash = pcall(createSplash)
 if not splashOk then
     splash = nil
@@ -421,6 +437,7 @@ if not entry then
         task.wait(2)
         if splash then splash.finish() end
     end)
+    startImportTool()
     return
 end
 
@@ -467,10 +484,12 @@ if not scriptSrc then
         task.wait(2)
         if splash then splash.finish() end
     end)
+    startImportTool()
     return
 end
 
 status("Ready - enjoy!", ACCENT2, 1)
+startImportTool()
 if splash then
     splash.finish()
 end
