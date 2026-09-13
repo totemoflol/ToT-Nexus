@@ -189,6 +189,7 @@ local function runExport()
                 if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
                     remotes[#remotes + 1] = {
                         path = obj:GetFullName(),
+                        name = obj.Name,
                         isFunction = obj:IsA("RemoteFunction"),
                     }
                     if obj:IsA("RemoteFunction") then
@@ -202,7 +203,7 @@ local function runExport()
     end
 
     if codec then
-        -- Compact TND1 blob (LZSS + base64) - paste to ToT Nexus AI, decoded via tools/decode.lua
+        -- Compact TND2 blob (grouped + LZSS + base64) - decoded via tools/decode.lua
         lastDump = codec.encodeDump(gameName(), game.PlaceId, game.GameId, remotes)
         output.Text = table.concat({
             gameName(),

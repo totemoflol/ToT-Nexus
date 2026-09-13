@@ -1,11 +1,11 @@
 -- =====================================================================
--- ToT Nexus | TND1 dump decoder (CLI)
+-- ToT Nexus | TND2 dump decoder (CLI)
 -- Usage:
---   lua5.4 tools/decode.lua "TND1:....blob...."
+--   lua5.4 tools/decode.lua "TND2:....blob...."
 --   lua5.4 tools/decode.lua blob.txt        (file containing the blob)
--- Prints the decoded remote list in readable form.
--- Format spec: see tools/codec.lua header (stable TND1 spec).
--- Any AI/session: to decode a pasted TND1 blob, run this file with lua5.4.
+-- Prints the decoded remote list, grouped by parent path.
+-- Format spec: see tools/codec.lua header (stable TND2 spec).
+-- Any AI/session: to decode a pasted TND2 blob, run this file with lua5.4.
 -- =====================================================================
 
 local path = ...
@@ -55,14 +55,23 @@ print("==================================================")
 
 local events, funcs = 0, 0
 for i = 2, #lines do
-    local flag, rest = lines[i]:match("^([EF])%s+(.+)$")
-    if flag then
-        if flag == "E" then
-            events = events + 1
-        else
-            funcs = funcs + 1
+    local line = lines[i]
+
+    local group = line:match("^> (.+)$")
+    if group then
+        print("")
+        print(codec.compactToPath(group))
+    else
+        local flag, name = line:match("^([EF]) (.+)$")
+        if flag then
+            if flag == "E" then
+                events = events + 1
+                print("  [Event]    " .. name)
+            else
+                funcs = funcs + 1
+                print("  [Function] " .. name)
+            end
         end
-        print((flag == "E" and "[Event]   " or "[Function]") .. " " .. codec.compactToPath(rest))
     end
 end
 

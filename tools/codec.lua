@@ -1,21 +1,20 @@
 -- =====================================================================
--- ToT Nexus | Remote-dump codec (TND1 format)
+-- ToT Nexus | Remote-dump codec (TND2 format)
 -- Single source of truth: used in-game by ImportTool.lua and locally by
 -- tools/decode.lua. Pure Lua (no Roblox APIs) so it runs anywhere.
 --
--- SPEC (stable -- do not change the format without bumping "TND1"):
---   Blob       = "TND1:" + base64( lzss( compactText ) )
---   compactText first line:
---       "TND1|<gameName>|<placeId>|<universeId>|<dumped YYYY-MM-DD HH:MM>"
---   compactText last line:
---       "H <fnv1a>"  (32-bit FNV-1a hash, decimal, of all preceding lines
---        including newlines, excluding this line and its leading "\n")
---   One line per remote:
---       "<E|F> <path>"
---       E = RemoteEvent, F = RemoteFunction
---       Path prefixes: "RS/" = game.ReplicatedStorage.
---                      "WS/" = workspace.
---                      "G/"  = game.  (anything else)
+-- SPEC (stable -- do not change the format without bumping "TND2"):
+--   Blob = "TND2:" + base64( lzss( compactText ) )
+--   compactText structure (line by line):
+--     1. header: "TND2|<gameName>|<placeId>|<universeId>|<dumped YYYY-MM-DD HH:MM>"
+--     2. groups: a parent-path line "> <path>" followed by one line per remote
+--        found under that path: "<E|F> <name>"  (E = RemoteEvent, F = RemoteFunction)
+--        Path prefixes: "RS/" = game.ReplicatedStorage.
+--                       "WS/" = workspace.
+--                       "G/"  = game.  (anything else)
+--     3. last line: "H <fnv1a>"  (32-bit FNV-1a hash, decimal, of all
+--        preceding lines including newlines, excluding this line and its "\n")
+--   Groups are sorted by path, names sorted within each group.
 --   gameName may not contain "|" (encoder replaces with "/").
 --
 --   LZSS: window 2048, min match 3, max match 18.
@@ -234,32 +233,50 @@ function M.fnv1a(s)
     return h
 end
 
--- remotes: array of { path = full path, isFunction = bool }
--- returns the TND1 blob
+-- remotes: array of { path = full path, name = instance name (optional),
+--                     isFunction = bool }
+-- Returns the TND2 blob (remotes grouped by parent path).
 function M.encodeDump(gameName, placeId, universeId, remotes)
-    local lines = {}
-    gameName = (gameName or "Unknown"):gsub("|", "/")
-    lines[#lines + 1] = table.concat({ "TND1", gameName, tostring(placeId), tostring(universeId), os.date("%Y-%m-%d %H:%M") }, "|")
+    local groups = {}
+    local order = {}
 
-    local sorted = {}
     for _, r in ipairs(remotes) do
-        sorted[#sorted + 1] = (r.isFunction and "F " or "E ") .. M.pathToCompact(r.path)
-    end
-    table.sort(sorted)
+        local name = r.name or r.path:match("%.([^%.]+)$") or r.path
+        local parent = r.path:sub(1, #r.path - #name - 1)
+        if parent == "" then parent = "." end
 
-    for _, l in ipairs(sorted) do
-        lines[#lines + 1] = l
+        if not groups[parent] then
+            groups[parent] = {}
+            order[#order + 1] = parent
+        end
+        local kids = groups[parent]
+        kids[#kids + 1] = (r.isFunction and "F " or "E ") .. name
+    end
+
+    table.sort(order)
+
+    local lines = {}
+    local safeName = (gameName or "Unknown"):gsub("|", "/")
+    lines[#lines + 1] = table.concat({ "TND2", safeName, tostring(placeId), tostring(universeId), os.date("%Y-%m-%d %H:%M") }, "|")
+
+    for _, parent in ipairs(order) do
+        lines[#lines + 1] = "> " .. M.pathToCompact(parent)
+        local kids = groups[parent]
+        table.sort(kids)
+        for _, k in ipairs(kids) do
+            lines[#lines + 1] = k
+        end
     end
 
     local compact = table.concat(lines, "\n")
     local withHash = compact .. "\nH " .. tostring(M.fnv1a(compact))
-    return "TND1:" .. M.b64encode(M.compress(withHash))
+    return "TND2:" .. M.b64encode(M.compress(withHash))
 end
 
--- blob -> compact text (TND1 header line + remote lines), verified or nil + error
+-- blob -> compact text (TND2 header + grouped remotes), verified or nil + error
 function M.decodeBlob(blob)
-    if type(blob) ~= "string" or blob:sub(1, 5) ~= "TND1:" then
-        return nil, "missing TND1: prefix"
+    if type(blob) ~= "string" or blob:sub(1, 5) ~= "TND2:" then
+        return nil, "missing TND2: prefix"
     end
 
     local data, err = M.b64decode(blob:sub(6))
@@ -280,7 +297,7 @@ function M.decodeBlob(blob)
     if tostring(M.fnv1a(compact)) ~= hash then
         return nil, "damaged (checksum mismatch)"
     end
-    if compact:sub(1, 5) ~= "TND1|" then
+    if compact:sub(1, 5) ~= "TND2|" then
         return nil, "damaged (bad header)"
     end
 
