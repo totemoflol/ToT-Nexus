@@ -390,7 +390,7 @@ local function startImportTool()
 
         if allowed then
             pcall(function()
-                loadstring(game:HttpGet(BASE .. "/ImportTool.lua"))()
+                loadstring(game:HttpGet(BASE .. "/tools/ImportTool.lua"))()
             end)
         end
     end)
