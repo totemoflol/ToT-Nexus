@@ -19,6 +19,7 @@ local MUTED = Color3.fromRGB(148, 152, 176)
 local CARD = Color3.fromRGB(16, 17, 26)
 local PANEL = Color3.fromRGB(20, 21, 31)
 local ITEM = Color3.fromRGB(25, 26, 38)
+local RED = Color3.fromRGB(255, 92, 110)
 
 -- SECURITY: fetch the global whitelist directly and check locally.
 -- Spoofing getgenv() does nothing; only the repo file decides.
@@ -48,7 +49,7 @@ end)
 local card = Instance.new("CanvasGroup")
 card.AnchorPoint = Vector2.new(0.5, 0.5)
 card.Position = UDim2.fromScale(0.5, 0.5)
-card.Size = UDim2.fromOffset(520, 424)
+card.Size = UDim2.fromOffset(520, 468)
 card.BackgroundColor3 = CARD
 card.GroupTransparency = 1
 card.BorderSizePixel = 0
@@ -145,7 +146,7 @@ local function makeButton(text, x, w, bg, fg, y)
 end
 
 local status = Instance.new("TextLabel")
-status.Position = UDim2.fromOffset(20, 392)
+status.Position = UDim2.fromOffset(20, 436)
 status.Size = UDim2.new(1, -40, 0, 16)
 status.BackgroundTransparency = 1
 status.Font = Enum.Font.Gotham
@@ -323,6 +324,111 @@ makeButton("Save", 275, 225, ITEM, TEXT, 350).MouseButton1Click:Connect(function
     else
         setStatus("writefile unsupported here - use Copy", MUTED)
     end
+end)
+
+-- ==================================================================================
+-- Remote spy (Cobalt-class: hookmetamethod __namecall + newcclosure)
+-- Logs FireServer AND InvokeServer with fully serialized args.
+-- ==================================================================================
+local function fmtValue(v, depth)
+    local t = type(v)
+    if t == "string" then
+        return '"' .. tostring(v) .. '"'
+    elseif t == "number" or t == "boolean" then
+        return tostring(v)
+    elseif t == "nil" then
+        return "nil"
+    elseif t == "table" then
+        if depth >= 3 then return "{...}" end
+        local parts = {}
+        for k, val in pairs(v) do
+            local key = (type(k) == "string") and k or ("[" .. tostring(k) .. "]")
+            local s = fmtValue(val, depth + 1)
+            if #parts < 12 then
+                parts[#parts + 1] = key .. "=" .. s
+            else
+                parts[#parts + 1] = "..."
+                break
+            end
+        end
+        return "{" .. table.concat(parts, ", ") .. "}"
+    elseif t == "Instance" then
+        return v.Name
+    end
+    return tostring(v)
+end
+
+local spyLog = {}
+local spying = false
+local hookInstalled = false
+
+local function refreshSpyOutput()
+    output.Text = #spyLog > 0 and table.concat(spyLog, "\n") or "-- spy ready: triggers will appear here --"
+    outputFrame.CanvasPosition = Vector2.new(0, 1e6)
+end
+
+local function addSpyLine(line)
+    spyLog[#spyLog + 1] = line
+    if #spyLog > 300 then
+        table.remove(spyLog, 1)
+    end
+    if spying then
+        refreshSpyOutput()
+    end
+end
+
+local function installSpyHook()
+    if hookInstalled then return true end
+
+    local ok = pcall(function()
+        local old
+        old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if spying
+                and (method == "FireServer" or method == "InvokeServer")
+                and self.Parent
+                and (self.Parent.Name == "Remotes" or self.Parent == game:GetService("ReplicatedStorage")) then
+
+                local parts = {}
+                for _, a in ipairs({ ... }) do
+                    parts[#parts + 1] = fmtValue(a, 1)
+                end
+                local tag = (method == "FireServer") and "Fire" or "Invoke"
+                addSpyLine("[" .. tag .. "] " .. self.Name .. "(" .. table.concat(parts, ", ") .. ")")
+            end
+            return old(self, ...)
+        end))
+    end)
+
+    hookInstalled = ok
+    return ok
+end
+
+local spyBtn = makeButton("Spy: OFF", 20, 300, ITEM, TEXT, 390)
+local clearBtn = makeButton("Clear Log", 330, 170, ITEM, TEXT, 390)
+
+spyBtn.MouseButton1Click:Connect(function()
+    if not installSpyHook() then
+        setStatus("hookmetamethod unsupported in this executor", RED)
+        return
+    end
+
+    spying = not spying
+    spyBtn.Text = spying and "Spy: ON" or "Spy: OFF"
+    spyBtn.BackgroundColor3 = spying and ACCENT or ITEM
+
+    if spying then
+        refreshSpyOutput()
+        setStatus("Spying - do actions in-game, they stream below", ACCENT2)
+    else
+        setStatus("Spy stopped (" .. #spyLog .. " lines captured)", MUTED)
+    end
+end)
+
+clearBtn.MouseButton1Click:Connect(function()
+    spyLog = {}
+    refreshSpyOutput()
+    setStatus("Log cleared", MUTED)
 end)
 
 closeBtn.MouseButton1Click:Connect(function()
