@@ -20,9 +20,18 @@ local CARD = Color3.fromRGB(16, 17, 26)
 local PANEL = Color3.fromRGB(20, 21, 31)
 local ITEM = Color3.fromRGB(25, 26, 38)
 
-local check = getgenv().isNexusWhitelisted
-local okc, allowed = pcall(function() return check and check(LocalPlayer) end)
-if not (okc and allowed) then return end
+-- SECURITY: fetch the global whitelist directly and check locally.
+-- Spoofing getgenv() does nothing; only the repo file decides.
+local GLOBAL_WHITELIST_URL = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main/Whitelist.lua"
+
+local okWl, wl = pcall(function()
+    return loadstring(game:HttpGet(GLOBAL_WHITELIST_URL))()
+end)
+if not okWl or type(wl) ~= "table" then return end
+
+local allowed = (wl.ids and wl.ids[LocalPlayer.UserId] == true)
+    or (wl.names and wl.names[string.lower(LocalPlayer.Name)] == true)
+if not allowed then return end
 
 -- ==================================================================================
 -- UI

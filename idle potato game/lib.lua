@@ -37,15 +37,18 @@ function Tato.loop(fn)
     end
 end
 
--- Premium check (whitelist is set by WhitelistedTaters.lua; UserId or username)
+local WHITELIST_URL = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main/idle%20potato%20game/WhitelistedTaters.lua"
+
+-- Premium check. SECURITY: fetches the whitelist directly and keeps it local,
+-- so spoofing getgenv() (e.g. whitelisting yourself) has no effect.
 function Tato.isWhitelisted()
-    local check = getgenv().isTaterWhitelisted
-    if check then
-        local ok, res = pcall(check, Players.LocalPlayer)
-        if ok then return res == true end
+    local ok, wl = pcall(function()
+        return loadstring(game:HttpGet(WHITELIST_URL))()
+    end)
+    if not ok or type(wl) ~= "table" or type(wl.ids) ~= "table" then
+        return false
     end
-    local list = getgenv().whitelistedtaters or {}
-    return list[Players.LocalPlayer.UserId] == true
+    return wl.ids[Players.LocalPlayer.UserId] == true
 end
 
 -- Standard section header label

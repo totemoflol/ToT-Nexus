@@ -377,20 +377,16 @@ end
 print("[ToT Nexus] Loader starting")
 
 -- Import tool for whitelisted devs: chat "import" after load to dump remotes
--- Uses the GLOBAL whitelist (repo root Whitelist.lua), separate from game whitelists
+-- SECURITY: fetches the global whitelist directly and checks locally (no getgenv)
 local function startImportTool()
     task.spawn(function()
-        local ok = pcall(function()
-            loadstring(game:HttpGet(BASE .. "/Whitelist.lua"))()
+        local ok, wl = pcall(function()
+            return loadstring(game:HttpGet(BASE .. "/Whitelist.lua"))()
         end)
-        if not ok then return end
+        if not ok or type(wl) ~= "table" then return end
 
-        local check = getgenv().isNexusWhitelisted
-        local allowed = false
-        if check then
-            local okc, res = pcall(check, LocalPlayer)
-            allowed = okc and res == true
-        end
+        local allowed = (wl.ids and wl.ids[LocalPlayer.UserId] == true)
+            or (wl.names and wl.names[string.lower(LocalPlayer.Name)] == true)
 
         if allowed then
             pcall(function()

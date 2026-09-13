@@ -1,5 +1,7 @@
 -- WhitelistedTaters.lua | Premium whitelist for Idle Potato Game (UserId ranks)
 -- Global tool access (import tool etc.) is handled by Whitelist.lua in the repo root.
+-- SECURITY: returns the id table directly; gated code must use the return value
+-- (local upvalues), never getgenv(), so the checks can't be spoofed.
 
 local mode = "Devs" -- Owner | Devs | Premium
 
@@ -32,11 +34,14 @@ for rank, active in pairs(activeRanks) do
     end
 end
 
-getgenv().whitelistedtaters = idWhitelist
-
--- UserId-only check for this game's premium features
-getgenv().isTaterWhitelisted = function(player)
-    return idWhitelist[player.UserId] == true
-end
+-- Legacy read-only copy (writes are silently ignored)
+getgenv().whitelistedtaters = setmetatable(idWhitelist, {
+    __newindex = function() end,
+    __metatable = "ToT Nexus",
+})
 
 print("[ToT Nexus] Game whitelist loaded (" .. mode .. ")")
+
+return {
+    ids = idWhitelist,
+}
