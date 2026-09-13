@@ -35,18 +35,20 @@ local AutoSellToggle = SellTab:CreateToggle({
    Callback = function(Value)
       Running = Value
 
-      while Running do
-         local args = {
-            Amount
-         }
+      task.spawn(function()
+         while Running do
+            local args = {
+               Amount
+            }
 
-         game:GetService("ReplicatedStorage")
-            :WaitForChild("Remotes")
-            :WaitForChild("SellGoldenPotatoes")
-            :FireServer(unpack(args))
+            game:GetService("ReplicatedStorage")
+               :WaitForChild("Remotes")
+               :WaitForChild("SellGoldenPotatoes")
+               :FireServer(unpack(args))
 
-         task.wait(Delay)
-      end
+            task.wait(Delay)
+         end
+      end)
    end,
 })
 

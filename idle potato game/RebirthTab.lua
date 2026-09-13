@@ -2,14 +2,15 @@
 local RebirthTab = Window:CreateTab("Rebirths", "aperture") -- Title, Image
 local PrestigeSection = RebirthTab:CreateSection("Ascension")
 local AscendLabel = RebirthTab:CreateLabel("Ascension Upgrades", 4483362458, Color3.fromRGB(255, 255, 255), false) -- Title, Icon, Color, IgnoreTheme
+local AbundanceAscend = false
 local AscendToggle = RebirthTab:CreateToggle({
     Name = "Abundance Ascension",
     CurrentValue = false,
     Flag = "AutoAscend",
     Callback = function(abundance)
-        local abundant = abundance
-        spawn(function()
-            while abundant do
+        AbundanceAscend = abundance
+        task.spawn(function()
+            while AbundanceAscend do
                 local args = {
                     "abundance"
                 }
@@ -29,15 +30,17 @@ local PrestigeAscendToggle = RebirthTab:CreateToggle({
    Callback = function(PrestigeA)
       PrestigeAscend = PrestigeA
 
-      while PrestigeA do
-         local args = {
-            "prestige"
-         }
+      task.spawn(function()
+         while PrestigeAscend do
+            local args = {
+               "prestige"
+            }
 
-         game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PerformAscension"):FireServer(unpack(args))
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PerformAscension"):FireServer(unpack(args))
 
-         task.wait(60)
-      end
+            task.wait(60)
+         end
+      end)
    end,
 })
 
@@ -48,11 +51,13 @@ local ThriftyAscendToggle = RebirthTab:CreateToggle({
    Flag = "ThriftyAscension",
    Callback = function(ThriftyAscend)
       ThriftAscend = ThriftyAscend
-      while ThriftAscend do
-         local args = {"thrifty"}
-         game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PerformAscension"):FireServer(unpack(args))
-         task.wait(60)
-      end
+      task.spawn(function()
+         while ThriftAscend do
+            local args = {"thrifty"}
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PerformAscension"):FireServer(unpack(args))
+            task.wait(60)
+         end
+      end)
    end,
 })
 

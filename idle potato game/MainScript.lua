@@ -75,31 +75,31 @@ local Window = Rayfield:CreateWindow({
 getgenv().Window = Window
 
 -- Whitelist
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/refs/heads/main/WhitelistedTaters.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/WhitelistedTaters.lua"))()
 
 -- Sell Tab
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/SellTab.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/SellTab.lua"))()
 
 -- Auto Tab
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/AutoTab.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/AutoTab.lua"))()
 
 -- Rebirth Tab
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/RebirthTab.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/RebirthTab.lua"))()
 
 -- Macro Tab
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/MacroTab.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/MacroTab.lua"))()
 
 -- Misc Tab
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/MiscTab.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/MiscTab.lua"))()
 
 -- Shop Tab
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/ShopTab.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/ShopTab.lua"))()
 
 -- Premium Tab
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/refs/heads/main/Admin.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/Admin.lua"))()
 
 -- Webhook Tab
-loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/refs/heads/main/Webhook.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/idle%20potato%20game/Webhook.lua"))()
 
 -- Anti-AFK (runs instantly when script runs)
 local Players = game:GetService("Players")
@@ -127,5 +127,5 @@ Rayfield:LoadConfiguration()
 local queue = queue_on_teleport or queueteleport or (syn and syn.queue_on_teleport)
 
 if queue then
-    queue('loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/refs/heads/main/MainScript.lua"))()')
+    queue('loadstring(game:HttpGet("https://raw.githubusercontent.com/totemoflol/Idle-Potato-Game/main/Loader.lua"))()')
 end

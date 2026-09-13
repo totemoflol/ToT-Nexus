@@ -5,9 +5,9 @@ local ProductionAutoBuyToggle = ShopTab:CreateToggle({
    CurrentValue = false,
    Flag = "ProductionAutoBuy",
    Callback = function(ProductionPotion)
-      AutoBuyProductionPotion = ProductionPotion
+      autobuy = ProductionPotion
       task.spawn(function()
-         while AutoBuyProductionPotion do
+         while autobuy do
             local args = {
                "potion_production"
             }
@@ -28,9 +28,9 @@ local LuckAutoBuyToggle = ShopTab:CreateToggle({
    CurrentValue = false,
    Flag = "LuckAutoBuy",
    Callback = function(LuckPotion)
-      AutoBuyLuckPotion = LuckPotion
+      autobuyluck = LuckPotion
       task.spawn(function()
-         while AutoBuyLuckPotion do
+         while autobuyluck do
             local args = {
                "potion_luck"
             }
@@ -51,9 +51,9 @@ local GoldenAutoBuyToggle = ShopTab:CreateToggle({
    CurrentValue = false,
    Flag = "GoldenAutoBuy",
    Callback = function(GoldenPotion)
-      AutoBuyGoldenPotion = GoldenPotion
+      autobuygolden = GoldenPotion
       task.spawn(function()
-         while AutoBuyGoldenPotion do
+         while autobuygolden do
             local args = {
                "potion_golden"
             }

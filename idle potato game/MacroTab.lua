@@ -89,7 +89,7 @@ local MacroV1Toggle = MacroTab:CreateToggle({
         ksmacro = KSMacro1
 
         task.spawn(function()
-            while KSMacro1 do
+            while ksmacro do
                -- Prestige                  
                 game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PerformPrestige"):FireServer()
                 task.wait(5)
@@ -244,10 +244,10 @@ local GeneratorMacroV1Toggle = MacroTab:CreateToggle({
     CurrentValue = false,
     Flag = "GeneratorFarmV1",
     Callback = function(GenFarmV1)
-        generatorfarmv1 = GenFarmV1
+        generatorfarm = GenFarmV1
 
         task.spawn(function()
-            while GenFarmV1 do
+            while generatorfarm do
                -- Prestige                  
                 game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PerformPrestige"):FireServer()
                 task.wait(1)
