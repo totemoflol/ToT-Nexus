@@ -7,6 +7,9 @@
 --   Blob       = "TND1:" + base64( lzss( compactText ) )
 --   compactText first line:
 --       "TND1|<gameName>|<placeId>|<universeId>|<dumped YYYY-MM-DD HH:MM>"
+--   compactText last line:
+--       "H <fnv1a>"  (32-bit FNV-1a hash, decimal, of all preceding lines
+--        including newlines, excluding this line and its leading "\n")
 --   One line per remote:
 --       "<E|F> <path>"
 --       E = RemoteEvent, F = RemoteFunction
@@ -51,7 +54,16 @@ function M.b64encode(data)
 end
 
 function M.b64decode(s)
-    s = s:gsub("=+$", "")
+    if type(s) ~= "string" then return nil, "not a string" end
+    s = s:gsub("%s", "")
+    local body = s:gsub("=+$", "")
+    if #body % 4 == 1 then
+        return nil, "damaged (body length " .. #body .. " is impossible for base64)"
+    end
+    if #s - #body > 2 then
+        return nil, "damaged (too much padding)"
+    end
+
     local lookup = {}
     for i = 1, #B64CHARS do
         lookup[B64CHARS:sub(i, i)] = i - 1
@@ -59,17 +71,18 @@ function M.b64decode(s)
     local out = {}
     local n = 0
     local count = 0
-    for i = 1, #s do
-        local v = lookup[s:sub(i, i)]
-        if v then
-            n = n * 64 + v
-            count = count + 1
-            if count == 4 then
-                out[#out + 1] = string.char(math.floor(n / 65536) % 256)
-                out[#out + 1] = string.char(math.floor(n / 256) % 256)
-                out[#out + 1] = string.char(n % 256)
-                n, count = 0, 0
-            end
+    for i = 1, #body do
+        local v = lookup[body:sub(i, i)]
+        if not v then
+            return nil, "damaged (invalid character at position " .. i .. ")"
+        end
+        n = n * 64 + v
+        count = count + 1
+        if count == 4 then
+            out[#out + 1] = string.char(math.floor(n / 65536) % 256)
+            out[#out + 1] = string.char(math.floor(n / 256) % 256)
+            out[#out + 1] = string.char(n % 256)
+            n, count = 0, 0
         end
     end
     if count == 2 then
@@ -211,6 +224,16 @@ function M.compactToPath(c)
     return c
 end
 
+-- 32-bit FNV-1a hash (decimal string) -- used for the "H <hash>" integrity line
+function M.fnv1a(s)
+    local h = 2166136261
+    for i = 1, #s do
+        h = (h ~ s:byte(i)) % 4294967296
+        h = (h * 16777619) % 4294967296
+    end
+    return h
+end
+
 -- remotes: array of { path = full path, isFunction = bool }
 -- returns the TND1 blob
 function M.encodeDump(gameName, placeId, universeId, remotes)
@@ -228,21 +251,40 @@ function M.encodeDump(gameName, placeId, universeId, remotes)
         lines[#lines + 1] = l
     end
 
-    return "TND1:" .. M.b64encode(M.compress(table.concat(lines, "\n")))
+    local compact = table.concat(lines, "\n")
+    local withHash = compact .. "\nH " .. tostring(M.fnv1a(compact))
+    return "TND1:" .. M.b64encode(M.compress(withHash))
 end
 
--- blob -> compact text (TND1 header line + remote lines)
+-- blob -> compact text (TND1 header line + remote lines), verified or nil + error
 function M.decodeBlob(blob)
-    if blob:sub(1, 5) ~= "TND1:" then
+    if type(blob) ~= "string" or blob:sub(1, 5) ~= "TND1:" then
         return nil, "missing TND1: prefix"
     end
-    local ok, text = pcall(function()
-        return M.decompress(M.b64decode(blob:sub(6)))
-    end)
-    if not ok then
+
+    local data, err = M.b64decode(blob:sub(6))
+    if not data then
+        return nil, err
+    end
+
+    local ok, text = pcall(M.decompress, data)
+    if not ok or type(text) ~= "string" then
         return nil, "decompress failed"
     end
-    return text
+
+    -- integrity: trailing "H <hash>" line + header check
+    local compact, hash = text:match("^(.-)\nH (%d+)$")
+    if not compact then
+        return nil, "damaged (missing integrity line)"
+    end
+    if tostring(M.fnv1a(compact)) ~= hash then
+        return nil, "damaged (checksum mismatch)"
+    end
+    if compact:sub(1, 5) ~= "TND1|" then
+        return nil, "damaged (bad header)"
+    end
+
+    return compact
 end
 
 return M
