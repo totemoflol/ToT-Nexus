@@ -24,4 +24,71 @@ for _, p in ipairs(Potions) do
     })
 end
 
+-- ================================================================
+-- Smart Buyer: reads live costs via RemoteFunctions and only buys
+-- the most expensive affordable upgrade/generator (cash from HUD label)
+-- ================================================================
+ShopTab:CreateSection("Smart Buyer")
+Tato.header(ShopTab, "Smart Buyer")
+
+local Gamedata = getgenv().Gamedata or { KnownIds = { ClickUpgrades = {}, Generators = {} } }
+
+local cashLabel
+local function cash()
+    if not cashLabel then
+        local ok = pcall(function()
+            cashLabel = Tato.waitForPath(game:GetService("Players").LocalPlayer.PlayerGui,
+                "PotatoGameGUI", "Background", "ClickerArea", "ClickerContainer",
+                "CurrencyFrame", "CashRow", "CashCount")
+        end)
+        if not ok then return 0 end
+    end
+    if cashLabel then return Tato.parseCount(cashLabel.Text) end
+    return 0
+end
+
+local function extractCost(v)
+    if type(v) == "number" then return v end
+    if type(v) == "table" then
+        return v.cost or v.price or v.Cost or v.Price or (type(v[1]) == "number" and v[1])
+    end
+    return nil
+end
+
+-- One pass: find the most expensive affordable id and buy it
+local function smartPass(costRemote, buyRemote, ids)
+    local money = cash()
+    local best, bestCost = nil, -1
+
+    for _, id in ipairs(ids) do
+        local ok, res = Tato.invoke(costRemote, id)
+        local cost = ok and extractCost(res) or nil
+        if cost and cost > 0 and cost <= money and cost > bestCost then
+            best, bestCost = id, cost
+        end
+    end
+
+    if best then
+        Tato.fire(buyRemote, best)
+    end
+end
+
+local SmartBuyers = {
+    { "Smart Click Upgrades", "GetUpgradeCost",  "PurchaseClickUpgrade", "SmartClickUpgrades", Gamedata.KnownIds.ClickUpgrades },
+    { "Smart Generators",     "GetGeneratorCost", "PurchaseGenerator",    "SmartGenerators",     Gamedata.KnownIds.Generators },
+}
+
+for _, s in ipairs(SmartBuyers) do
+    local name, costRemote, buyRemote, flag, ids = s[1], s[2], s[3], s[4], s[5]
+    ShopTab:CreateToggle({
+        Name = name,
+        CurrentValue = false,
+        Flag = flag,
+        Callback = Tato.loop(function()
+            smartPass(costRemote, buyRemote, ids)
+            task.wait(3)
+        end),
+    })
+end
+
 print("Shop Tab Loaded V1.10")

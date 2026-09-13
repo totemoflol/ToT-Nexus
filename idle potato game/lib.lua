@@ -38,9 +38,22 @@ function Tato.parseCount(text)
     return math.floor(value)
 end
 
+Tato.Remotes = Remotes
+
 -- Fire a game remote by name
 function Tato.fire(name, ...)
     Remotes:WaitForChild(name):FireServer(...)
+end
+
+-- Invoke a RemoteFunction safely -> ok, result
+function Tato.invoke(name, ...)
+    local remote = Remotes:WaitForChild(name, 5)
+    if not remote then return false, "remote not found" end
+    local args = { ... }
+    local ok, result = pcall(function()
+        return remote:InvokeServer(unpack(args))
+    end)
+    return ok, result
 end
 
 -- Bind a toggle callback to a repeating loop.

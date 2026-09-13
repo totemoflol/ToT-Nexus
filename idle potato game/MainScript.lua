@@ -46,10 +46,15 @@ for _, s in ipairs({ { 5793681247, 1, false }, { 18967588612, 2, true } }) do
     sound:Play()
 end
 
+-- Remote reference data (ids for smart buyer / potions)
+pcall(function()
+    getgenv().Gamedata = loadstring(game:HttpGet(BASE .. "/idle%20potato%20game/gamedata.lua"))()
+end)
+
 -- Load helpers, whitelist, then all tabs (order matters)
 for _, file in ipairs({
     "lib", "WhitelistedTaters", "SellTab", "AutoTab",
-    "RebirthTab", "MiscTab", "ShopTab", "MacroTab", "Premium",
+    "RebirthTab", "MiscTab", "ShopTab", "BoostsTab", "MacroTab", "Premium",
 }) do
     loadstring(game:HttpGet(BASE .. "/" .. file .. ".lua"))()
 end
