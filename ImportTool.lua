@@ -161,8 +161,17 @@ local function setStatus(msg, color)
 end
 
 -- ==================================================================================
--- Export
+-- Export (TND1 compact blob via tools/codec.lua; plain text fallback)
 -- ==================================================================================
+local CODEC_URL = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main/tools/codec.lua"
+
+local codecOk, codec = pcall(function()
+    return loadstring(game:HttpGet(CODEC_URL))()
+end)
+if not codecOk then codec = nil end
+
+local lastDump = nil
+
 local function gameName()
     local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, game.PlaceId)
     if ok and info and info.Name then return info.Name end
@@ -171,39 +180,61 @@ end
 
 local function runExport()
     local remotes = {}
+    local events, funcs = 0, 0
     local roots = { game:GetService("ReplicatedStorage"), workspace }
 
     for _, root in ipairs(roots) do
         pcall(function()
             for _, obj in ipairs(root:GetDescendants()) do
                 if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-                    table.insert(remotes, obj:GetFullName() .. "  [" .. obj.ClassName .. "]")
+                    remotes[#remotes + 1] = {
+                        path = obj:GetFullName(),
+                        isFunction = obj:IsA("RemoteFunction"),
+                    }
+                    if obj:IsA("RemoteFunction") then
+                        funcs = funcs + 1
+                    else
+                        events = events + 1
+                    end
                 end
             end
         end)
     end
 
-    table.sort(remotes)
+    if codec then
+        -- Compact TND1 blob (LZSS + base64) - paste to ToT Nexus AI, decoded via tools/decode.lua
+        lastDump = codec.encodeDump(gameName(), game.PlaceId, game.GameId, remotes)
+        output.Text = table.concat({
+            gameName(),
+            "Remotes: " .. #remotes .. "  (Events: " .. events .. ", Functions: " .. funcs .. ")",
+            "Blob: " .. #lastDump .. " chars",
+            "",
+            lastDump:sub(1, 96) .. (#lastDump > 96 and "..." or ""),
+        }, "\n")
+    else
+        -- Fallback: plain text dump
+        local lines = {}
+        for _, r in ipairs(remotes) do
+            lines[#lines + 1] = r.path .. "  [" .. (r.isFunction and "RemoteFunction" or "RemoteEvent") .. "]"
+        end
+        table.sort(lines)
+        lastDump = string.format(
+            "# %s\nPlaceId: %d | UniverseId: %d | Dumped: %s\n\n## Remotes (%d)\n\n%s",
+            gameName(), game.PlaceId, game.GameId, os.date("%Y-%m-%d %H:%M"), #remotes,
+            table.concat(lines, "\n")
+        )
+        output.Text = lastDump
+    end
 
-    local dump = string.format(
-        "# %s\nPlaceId: %d | UniverseId: %d | Dumped: %s\n\n## Remotes (%d)\n\n%s",
-        gameName(), game.PlaceId, game.GameId, os.date("%Y-%m-%d %H:%M"), #remotes,
-        table.concat(remotes, "\n")
-    )
-
-    output.Text = dump
     outputFrame.CanvasPosition = Vector2.new()
 
     if setclipboard then
-        setclipboard(dump)
-        setStatus("Found " .. #remotes .. " remotes - copied to clipboard!", ACCENT2)
+        setclipboard(lastDump)
+        setStatus("Blob ready (" .. #lastDump .. " chars) - copied to clipboard!", ACCENT2)
     else
-        setStatus("Found " .. #remotes .. " remotes", ACCENT2)
+        setStatus("Dump ready (" .. #lastDump .. " chars)", ACCENT2)
     end
-    return dump
 end
-
-local lastDump = nil
 
 makeButton("Run Export", 20, 150, ACCENT, TEXT).MouseButton1Click:Connect(function()
     lastDump = runExport()
@@ -218,12 +249,13 @@ makeButton("Copy", 178, 130, ITEM, TEXT).MouseButton1Click:Connect(function()
     end
 end)
 
-makeButton("Save .txt", 316, 130, ITEM, TEXT).MouseButton1Click:Connect(function()
+makeButton("Save", 316, 130, ITEM, TEXT).MouseButton1Click:Connect(function()
     if not lastDump then
         setStatus("Run the export first", MUTED)
     elseif writefile then
-        writefile("ToT-Nexus-remotes.txt", lastDump)
-        setStatus("Saved ToT-Nexus-remotes.txt to workspace folder", ACCENT2)
+        local ext = codec and ".tnd" or ".txt"
+        writefile("ToT-Nexus-dump" .. ext, lastDump)
+        setStatus("Saved ToT-Nexus-dump" .. ext .. " to workspace folder", ACCENT2)
     else
         setStatus("writefile unsupported here - use Copy", MUTED)
     end
