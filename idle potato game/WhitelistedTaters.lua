@@ -1,14 +1,7 @@
--- WhitelistedTaters.lua | Premium whitelist
--- Add usernames to the list below (case doesn't matter).
--- UserId ranks are also checked, gated by `mode` for finer control.
+-- WhitelistedTaters.lua | Premium whitelist for Idle Potato Game (UserId ranks)
+-- Global tool access (import tool etc.) is handled by Whitelist.lua in the repo root.
 
 local mode = "Devs" -- Owner | Devs | Premium
-
--- Whitelisted usernames (case-insensitive)
-local Usernames = {
-    "Totemoflol",
-    "Banmelikeagoodboy672",
-}
 
 local Ranks = {
     Diamond = {
@@ -39,18 +32,11 @@ for rank, active in pairs(activeRanks) do
     end
 end
 
-local nameWhitelist = {}
-for _, name in ipairs(Usernames) do
-    nameWhitelist[string.lower(name)] = true
-end
-
--- Kept for backwards compatibility (UserId-only check)
 getgenv().whitelistedtaters = idWhitelist
 
--- Case-insensitive check: UserId OR username
+-- UserId-only check for this game's premium features
 getgenv().isTaterWhitelisted = function(player)
-    if idWhitelist[player.UserId] then return true end
-    return nameWhitelist[string.lower(player.Name)] == true
+    return idWhitelist[player.UserId] == true
 end
 
-print("[ToT Nexus] Whitelist loaded (" .. mode .. ")")
+print("[ToT Nexus] Game whitelist loaded (" .. mode .. ")")

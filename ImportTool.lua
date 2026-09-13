@@ -20,16 +20,9 @@ local CARD = Color3.fromRGB(16, 17, 26)
 local PANEL = Color3.fromRGB(20, 21, 31)
 local ITEM = Color3.fromRGB(25, 26, 38)
 
-local function allowed()
-    local check = getgenv().isTaterWhitelisted
-    if check then
-        local ok, res = pcall(check, LocalPlayer)
-        if ok then return res == true end
-    end
-    local wl = getgenv().whitelistedtaters or {}
-    return wl[LocalPlayer.UserId] == true
-end
-if not allowed() then return end
+local check = getgenv().isNexusWhitelisted
+local okc, allowed = pcall(function() return check and check(LocalPlayer) end)
+if not (okc and allowed) then return end
 
 -- ==================================================================================
 -- UI
