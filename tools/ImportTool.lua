@@ -216,7 +216,14 @@ local function runExport(mode)
     end
 
     if mode == "deep" then
-        -- DEX-style: scan every service in the DataModel
+        -- DEX-style: scan every service in the DataModel.
+        -- Skips the quick-scan roots (RS + workspace) so the deep dump only
+        -- contains what the quick export DOESN'T already cover (compact, no overlap).
+        local quickRoots = {
+            [game:GetService("ReplicatedStorage")] = true,
+            [workspace] = true,
+        }
+
         local services, listed = {}, {}
         for _, s in ipairs(game:GetChildren()) do
             services[#services + 1] = s
@@ -236,7 +243,7 @@ local function runExport(mode)
 
         local scanned = 0
         for _, s in ipairs(services) do
-            if not SKIP_SERVICES[s.Name] then
+            if not SKIP_SERVICES[s.Name] and not quickRoots[s] then
                 setStatus("Deep scan: " .. s.Name .. "...", MUTED)
                 collect(s)
                 scanned = scanned + 1
