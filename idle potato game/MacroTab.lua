@@ -77,30 +77,52 @@ MacroTab:CreateToggle({
         local potatoLabel = Tato.waitForPath(currency, "PotatoRow", "PotatoCount")
         local cashLabel = Tato.waitForPath(currency, "CashRow", "CashCount")
 
+        local lastSell, lastBuy = 0, 0
         -- First prestige waits a full interval so early cash isn't wasted
-        local lastBuyPass = 0
         local lastPrestige = os.clock()
+        local lastFullRefresh = 0
         local tierBuys = {} -- purchases per tier this wave
+        local costCache = {} -- id -> current cost (nil = unknown/maxed)
+        local cacheLoaded = false
+
+        -- Cost invokes are RemoteFunctions (slow) -- cache them and only
+        -- re-check the tier we just bought + a full refresh every 10s
+        local function refreshAllCosts()
+            for _, id in ipairs(UpgradeChain) do
+                local ok, res = Tato.invoke("GetUpgradeCost", id)
+                costCache[id] = ok and Tato.extractCost(res) or nil
+            end
+            cacheLoaded = true
+            lastFullRefresh = os.clock()
+        end
 
         while alive() do
-            -- Sell both currencies whenever the counters rise
-            local gold = Tato.parseCount(goldLabel.Text)
-            if gold > 0 then
-                sell(gold)
-            end
-            local potatoes = Tato.parseCount(potatoLabel.Text)
-            if potatoes > 0 then
-                Tato.fire("SellPotatoes", potatoes)
-            end
-
             local now = os.clock()
             local elapsed = now - lastPrestige
             local inGrace = (prestigeInterval - elapsed) <= prestigeGrace
 
-            -- Upgrade pass every 2s, but PAUSED during the pre-prestige grace:
-            -- keep cash (prestige points) instead of spending it on upgrades
-            if now - lastBuyPass >= 2 and not inGrace then
-                lastBuyPass = now
+            -- Sell pass every 0.15s (macro-local rate; SellTab stays at 0.25s)
+            if now - lastSell >= 0.15 then
+                lastSell = now
+                local gold = Tato.parseCount(goldLabel.Text)
+                if gold > 0 then
+                    sell(gold)
+                end
+                local potatoes = Tato.parseCount(potatoLabel.Text)
+                if potatoes > 0 then
+                    Tato.fire("SellPotatoes", potatoes)
+                end
+            end
+
+            -- Buy pass every 0.05s, paused during the pre-prestige grace:
+            -- keep cash (prestige points) instead of spending it
+            if not inGrace and now - lastBuy >= 0.05 then
+                lastBuy = now
+
+                if not cacheLoaded or now - lastFullRefresh >= 10 then
+                    refreshAllCosts()
+                end
+
                 local money = Tato.parseCount(cashLabel.Text)
                 local best, bestCost = nil, -1
                 local allCapped = true
@@ -108,8 +130,7 @@ MacroTab:CreateToggle({
                 for _, id in ipairs(UpgradeChain) do
                     if (tierBuys[id] or 0) < maxTierBuys then
                         allCapped = false
-                        local ok, res = Tato.invoke("GetUpgradeCost", id)
-                        local cost = ok and Tato.extractCost(res) or nil
+                        local cost = costCache[id]
                         if cost and cost > 0 and cost <= money and cost > bestCost then
                             best, bestCost = id, cost
                         end
@@ -121,6 +142,9 @@ MacroTab:CreateToggle({
                 elseif best then
                     tierBuys[best] = (tierBuys[best] or 0) + 1
                     upg(best)
+                    -- tier leveled up: re-check just its cost
+                    local ok, res = Tato.invoke("GetUpgradeCost", best)
+                    costCache[best] = ok and Tato.extractCost(res) or nil
                 end
             end
 
@@ -128,10 +152,12 @@ MacroTab:CreateToggle({
             if elapsed >= prestigeInterval then
                 lastPrestige = now
                 tierBuys = {} -- fresh wave after each prestige
+                costCache = {} -- levels reset -> costs changed
+                cacheLoaded = false
                 Tato.fire("PerformPrestige")
             end
 
-            task.wait(0.25)
+            task.wait(0.05)
         end
     end),
 })
