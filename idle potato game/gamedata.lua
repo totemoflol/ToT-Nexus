@@ -211,9 +211,9 @@ Gamedata.Admin = {
 -- KNOWN ARGUMENT IDS (from working scripts)
 -- =====================================================================
 Gamedata.KnownIds = {
-    -- Full click upgrade chain (spy-verified 2026-09-14).
-    -- INCOMPLETE: more tiers exist past infinite_potato_mastery
-    -- (not affordable yet -- spy more purchases to extend).
+    -- Full click upgrade chain (spy-verified 2026-09-14 + follow-up dump).
+    -- galaxy_tap (between omnifinger and big_bang_click) is an UNVERIFIED
+    -- name guess -- confirm via spy if buys ever skip it.
     ClickUpgradeChain = {
         "stronger_hands",
         "padded_gloves",
@@ -230,6 +230,16 @@ Gamedata.KnownIds = {
         "galactic_harvest",
         "universal_potato_power",
         "infinite_potato_mastery",
+        "omniversal_click",
+        "singularity_tap",
+        "finger_of_god",
+        "magical_foam_finger",
+        "mind_click",
+        "omnifinger",
+        "galaxy_tap",
+        "big_bang_click",
+        "infinity_finger_poke",
+        "the_final_click",
     },
     ClickUpgrades = {
         "grandfathers_wisdom",
