@@ -174,6 +174,8 @@ end)
 if not codecOk then codec = nil end
 
 local lastDump = nil
+local view = "dump" -- which content the box is showing: "dump" | "spy"
+local spyLog = {} -- captured remote calls (spy)
 
 local function gameName()
     local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, game.PlaceId)
@@ -284,6 +286,7 @@ local function runExport(mode)
     end
 
     outputFrame.CanvasPosition = Vector2.new()
+    view = "dump"
 
     if setclipboard then
         setclipboard(lastDump)
@@ -304,25 +307,49 @@ makeButton("Deep Export", 270, 230, ACCENT2, CARD, 306).MouseButton1Click:Connec
     lastDump = runExport("deep")
 end)
 
--- Row 2: clipboard / file
+-- Row 2: clipboard / file (copies whatever is on screen: spy log or dump)
 makeButton("Copy", 20, 225, ITEM, TEXT, 350).MouseButton1Click:Connect(function()
-    if lastDump and setclipboard then
-        setclipboard(lastDump)
+    if not setclipboard then
+        setStatus("No clipboard support in this executor", MUTED)
+        return
+    end
+
+    local content
+    if view == "spy" then
+        content = #spyLog > 0 and table.concat(spyLog, "\n") or nil
+    else
+        content = lastDump
+    end
+
+    if content then
+        setclipboard(content)
         setStatus("Copied to clipboard", ACCENT2)
     else
-        setStatus("Nothing to copy yet" .. (setclipboard and "" or " (no clipboard support)"), MUTED)
+        setStatus("Nothing to copy yet", MUTED)
     end
 end)
 
 makeButton("Save", 275, 225, ITEM, TEXT, 350).MouseButton1Click:Connect(function()
-    if not lastDump then
-        setStatus("Run the export first", MUTED)
-    elseif writefile then
+    if not writefile then
+        setStatus("writefile unsupported here - use Copy", MUTED)
+        return
+    end
+
+    if view == "spy" then
+        if #spyLog == 0 then
+            setStatus("Nothing to save yet", MUTED)
+            return
+        end
+        writefile("ToT-Nexus-spylog.txt", table.concat(spyLog, "\n"))
+        setStatus("Saved ToT-Nexus-spylog.txt to workspace folder", ACCENT2)
+    else
+        if not lastDump then
+            setStatus("Run the export first", MUTED)
+            return
+        end
         local ext = codec and ".tnd" or ".txt"
         writefile("ToT-Nexus-dump" .. ext, lastDump)
         setStatus("Saved ToT-Nexus-dump" .. ext .. " to workspace folder", ACCENT2)
-    else
-        setStatus("writefile unsupported here - use Copy", MUTED)
     end
 end)
 
@@ -396,7 +423,6 @@ local function fmtValue(v, depth)
     return tostring(v)
 end
 
-local spyLog = {}
 local spying = false
 local hookInstalled = false
 
@@ -404,6 +430,7 @@ local hookInstalled = false
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local function refreshSpyOutput()
+    view = "spy"
     output.Text = #spyLog > 0 and table.concat(spyLog, "\n") or "-- spy ready: triggers will appear here --"
     outputFrame.CanvasPosition = Vector2.new(0, 1e6)
 end
@@ -413,10 +440,22 @@ local function addSpyLine(line)
     if #spyLog > 300 then
         table.remove(spyLog, 1)
     end
+    -- live refresh is driven by the poller below; defer is a best-effort extra
     if spying then
-        task.defer(refreshSpyOutput) -- never touch UI from inside the hook
+        task.defer(refreshSpyOutput)
     end
 end
+
+-- Live log poller: guarantees the box streams while spying,
+-- no matter what is safe to call from inside the hook
+task.spawn(function()
+    while true do
+        if spying then
+            refreshSpyOutput()
+        end
+        task.wait(0.2)
+    end
+end)
 
 local function installSpyHook()
     if hookInstalled then return true end
