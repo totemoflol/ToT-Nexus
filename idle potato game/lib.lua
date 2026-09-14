@@ -65,6 +65,22 @@ function Tato.extractCost(v)
     return nil
 end
 
+-- Toggle registry: lets tabs flip each other's Rayfield toggles
+Tato.toggles = {}
+
+function Tato.registerToggle(name, element)
+    Tato.toggles[name] = element
+end
+
+function Tato.setToggle(name, state)
+    local el = Tato.toggles[name]
+    if el then
+        pcall(function() el:Set(state) end)
+        return true
+    end
+    return false
+end
+
 -- Bind a toggle callback to a repeating loop.
 -- fn(alive) must yield (task.wait) at least once per pass.
 -- alive() returns false once toggled off, so long macros can bail mid-sequence.

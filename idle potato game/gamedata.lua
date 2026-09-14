@@ -211,16 +211,25 @@ Gamedata.Admin = {
 -- KNOWN ARGUMENT IDS (from working scripts)
 -- =====================================================================
 Gamedata.KnownIds = {
-    -- Full click upgrade chain: "stronger hands" -> "the final click".
-    -- MIDDLE TIERS UNVERIFIED -- spy-log a purchase of each tier to complete.
+    -- Full click upgrade chain (spy-verified 2026-09-14).
+    -- INCOMPLETE: more tiers exist past infinite_potato_mastery
+    -- (not affordable yet -- spy more purchases to extend).
     ClickUpgradeChain = {
         "stronger_hands",
+        "padded_gloves",
+        "steel_trowel",
+        "golden_trowel",
+        "farmers_instinct",
+        "advanced_techniques",
         "grandfathers_wisdom",
+        "lunar_planting",
+        "dimensional_reach",
         "infinite_energy",
         "omnipotato_blessing",
         "transcendent_harvest",
         "galactic_harvest",
-        "the_final_click",
+        "universal_potato_power",
+        "infinite_potato_mastery",
     },
     ClickUpgrades = {
         "grandfathers_wisdom",

@@ -46,11 +46,30 @@ MacroTab:CreateInput({
     end,
 })
 
+-- Grace period: upgrade buying stops this many seconds before each prestige
+-- so cash (which decides prestige points) can build up instead of being spent.
+local prestigeGrace = 3
+MacroTab:CreateInput({
+    Name = "Prestige Grace (seconds)",
+    CurrentValue = "",
+    PlaceholderText = "3",
+    RemoveTextAfterFocusLost = false,
+    Flag = "VersatileGrace",
+    Callback = function(v)
+        prestigeGrace = math.max(0, tonumber(v) or 3)
+    end,
+})
+
 MacroTab:CreateToggle({
     Name = "Versatile Macro",
     CurrentValue = false,
     Flag = "VersatileMacro",
     Callback = Tato.loop(function(alive)
+        -- Turn on the supporting toggles (they exist as standalone toggles too)
+        Tato.setToggle("AutoClick", true)
+        Tato.setToggle("AutoSellGolden", true)
+        Tato.setToggle("AutoSellPotatoes", true)
+
         local player = game:GetService("Players").LocalPlayer
         local currency = Tato.waitForPath(player.PlayerGui,
             "PotatoGameGUI", "Background", "ClickerArea", "ClickerContainer", "CurrencyFrame")
@@ -58,7 +77,9 @@ MacroTab:CreateToggle({
         local potatoLabel = Tato.waitForPath(currency, "PotatoRow", "PotatoCount")
         local cashLabel = Tato.waitForPath(currency, "CashRow", "CashCount")
 
-        local lastBuyPass, lastPrestige = 0, 0
+        -- First prestige waits a full interval so early cash isn't wasted
+        local lastBuyPass = 0
+        local lastPrestige = os.clock()
         local tierBuys = {} -- purchases per tier this wave
 
         while alive() do
@@ -73,10 +94,12 @@ MacroTab:CreateToggle({
             end
 
             local now = os.clock()
+            local elapsed = now - lastPrestige
+            local inGrace = (prestigeInterval - elapsed) <= prestigeGrace
 
-            -- Upgrade pass every 2s: buy the most expensive affordable tier
-            -- that hasn't hit the per-tier cap this wave
-            if now - lastBuyPass >= 2 then
+            -- Upgrade pass every 2s, but PAUSED during the pre-prestige grace:
+            -- keep cash (prestige points) instead of spending it on upgrades
+            if now - lastBuyPass >= 2 and not inGrace then
                 lastBuyPass = now
                 local money = Tato.parseCount(cashLabel.Text)
                 local best, bestCost = nil, -1
@@ -102,8 +125,9 @@ MacroTab:CreateToggle({
             end
 
             -- Prestige pass: fire on interval; server rejects while on cooldown
-            if now - lastPrestige >= prestigeInterval then
+            if elapsed >= prestigeInterval then
                 lastPrestige = now
+                tierBuys = {} -- fresh wave after each prestige
                 Tato.fire("PerformPrestige")
             end
 

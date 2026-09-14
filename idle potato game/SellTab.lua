@@ -40,19 +40,21 @@ SellTab:CreateSection("Sell All")
 
 local sellGold, sellPotatoes = false, false
 
-SellTab:CreateToggle({
+local AutoSellGoldenToggle = SellTab:CreateToggle({
     Name = "Auto Sell Golden Potatoes",
     CurrentValue = false,
     Flag = "AutoSellGolden",
     Callback = function(state) sellGold = state end,
 })
+Tato.registerToggle("AutoSellGolden", AutoSellGoldenToggle)
 
-SellTab:CreateToggle({
+local AutoSellPotatoesToggle = SellTab:CreateToggle({
     Name = "Auto Sell Potatoes",
     CurrentValue = false,
     Flag = "AutoSellPotatoes",
     Callback = function(state) sellPotatoes = state end,
 })
+Tato.registerToggle("AutoSellPotatoes", AutoSellPotatoesToggle)
 
 task.spawn(function()
     local player = game:GetService("Players").LocalPlayer
