@@ -85,15 +85,20 @@ MacroTab:CreateToggle({
         local costCache = {} -- id -> current cost (nil = unknown/maxed)
         local cacheLoaded = false
         local refreshing = false
+        local baseCosts = nil -- post-prestige (level 1) costs, snapshotted once
+        local snapshotNext = false -- true while a refresh should save baseCosts
 
         -- Cost invokes are RemoteFunctions (slow, blocking). ALL refreshing
         -- runs in a background thread so buy passes never stall -- this was
         -- the old bottleneck (sync refresh + per-buy re-invoke = seconds
         -- between purchases).
-        local function refreshCosts()
+        -- delay: optional seconds to wait first (lets the server apply a
+        -- prestige before we read post-reset costs).
+        local function refreshCosts(delay, snapshot)
             if refreshing then return end
             refreshing = true
             task.spawn(function()
+                if delay and delay > 0 then task.wait(delay) end
                 local fresh = {}
                 for _, id in ipairs(UpgradeChain) do
                     local ok, res = Tato.invoke("GetUpgradeCost", id)
@@ -101,6 +106,12 @@ MacroTab:CreateToggle({
                 end
                 for id, cost in pairs(fresh) do
                     costCache[id] = cost
+                end
+                if snapshot then
+                    baseCosts = {}
+                    for id, cost in pairs(fresh) do
+                        baseCosts[id] = cost
+                    end
                 end
                 cacheLoaded = true
                 lastFullRefresh = os.clock()
@@ -164,10 +175,23 @@ MacroTab:CreateToggle({
             if elapsed >= prestigeInterval then
                 lastPrestige = now
                 tierBuys = {} -- fresh wave after each prestige
-                costCache = {} -- levels reset -> costs changed
-                cacheLoaded = false
-                refreshCosts()
                 Tato.fire("PerformPrestige")
+
+                -- Post-prestige costs are identical every cycle (levels reset
+                -- to base) -- seed the cache instantly from the snapshot so
+                -- buying resumes immediately; a delayed background refresh
+                -- verifies + captures the snapshot on the first cycle.
+                if baseCosts then
+                    costCache = {}
+                    for id, cost in pairs(baseCosts) do
+                        costCache[id] = cost
+                    end
+                    cacheLoaded = true
+                else
+                    costCache = {}
+                    cacheLoaded = false
+                end
+                refreshCosts(1, not baseCosts)
             end
 
             task.wait(0.025)
