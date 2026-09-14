@@ -404,6 +404,25 @@ local function createSplash()
         orbit.BackgroundColor3 = RED
     end
 
+    -- Small admin button shown during loading (globally whitelisted users only)
+    function api.adminButton(onClick)
+        local b = Instance.new("TextButton")
+        b.AnchorPoint = Vector2.new(1, 1)
+        b.Position = UDim2.new(1, -24, 1, -14)
+        b.Size = UDim2.fromOffset(72, 22)
+        b.BackgroundColor3 = Color3.fromRGB(21, 22, 33)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 10
+        b.TextColor3 = MUTED
+        b.Text = "ADMIN"
+        b.Parent = card
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+        local s = Instance.new("UIStroke", b)
+        s.Color = Color3.fromRGB(48, 50, 74)
+        s.Transparency = 0.3
+        b.MouseButton1Click:Connect(onClick)
+    end
+
     function api.finish()
         task.wait(0.35)
         local out = TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
@@ -503,6 +522,24 @@ if entry.GatedFeatures and #entry.GatedFeatures > 0 and entry.Whitelist then
     whitelistedUser = ok and type(wl) == "table"
         and type(wl.ids) == "table"
         and wl.ids[LocalPlayer.UserId] == true
+end
+
+-- Global whitelist gate (admin panel button window during loading)
+do
+    local ok, gwl = pcall(function()
+        return loadstring(game:HttpGet(BASE .. "/Whitelist.lua"))()
+    end)
+    local globalAllowed = ok and type(gwl) == "table"
+        and ((gwl.ids and gwl.ids[LocalPlayer.UserId] == true)
+            or (gwl.names and gwl.names[string.lower(LocalPlayer.Name)] == true))
+
+    if globalAllowed and splash then
+        splash.adminButton(function()
+            pcall(function()
+                loadstring(game:HttpGet(BASE .. "/tools/AdminPanel.lua"))()
+            end)
+        end)
+    end
 end
 
 -- Fetch the game script in parallel while the feature feed plays
