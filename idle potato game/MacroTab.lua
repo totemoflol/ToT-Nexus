@@ -19,11 +19,11 @@ Tato.header(MacroTab, "Versatile Macro")
 
 local UpgradeChain = Gamedata.KnownIds.ClickUpgradeChain or Gamedata.KnownIds.ClickUpgrades
 
-local prestigeInterval = 30
+local prestigeInterval = 31
 MacroTab:CreateInput({
     Name = "Prestige Interval (seconds)",
     CurrentValue = "",
-    PlaceholderText = "30",
+    PlaceholderText = "31",
     RemoveTextAfterFocusLost = false,
     Flag = "VersatilePrestigeInterval",
     Callback = function(v)
