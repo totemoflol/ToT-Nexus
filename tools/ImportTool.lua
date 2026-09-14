@@ -10,7 +10,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
-local WINDOW_SECONDS = 180 -- chat monitor duration after load
+local WINDOW_SECONDS = nil -- nil = monitor forever
 
 local ACCENT = Color3.fromRGB(124, 92, 255)
 local ACCENT2 = Color3.fromRGB(64, 224, 255)
@@ -570,5 +570,7 @@ pcall(function()
     end))
 end)
 
-task.delay(WINDOW_SECONDS, stopMonitor)
-print("[ToT Nexus] Import monitor armed for " .. WINDOW_SECONDS .. "s - say \"import\" in chat")
+if WINDOW_SECONDS then
+    task.delay(WINDOW_SECONDS, stopMonitor)
+end
+print("[ToT Nexus] Import monitor armed" .. (WINDOW_SECONDS and (" for " .. WINDOW_SECONDS .. "s") or " (forever)") .. ' - say "import" in chat')
