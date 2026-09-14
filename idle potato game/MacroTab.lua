@@ -84,16 +84,28 @@ MacroTab:CreateToggle({
         local tierBuys = {} -- purchases per tier this wave
         local costCache = {} -- id -> current cost (nil = unknown/maxed)
         local cacheLoaded = false
+        local refreshing = false
 
-        -- Cost invokes are RemoteFunctions (slow) -- cache them and only
-        -- re-check the tier we just bought + a full refresh every 10s
-        local function refreshAllCosts()
-            for _, id in ipairs(UpgradeChain) do
-                local ok, res = Tato.invoke("GetUpgradeCost", id)
-                costCache[id] = ok and Tato.extractCost(res) or nil
-            end
-            cacheLoaded = true
-            lastFullRefresh = os.clock()
+        -- Cost invokes are RemoteFunctions (slow, blocking). ALL refreshing
+        -- runs in a background thread so buy passes never stall -- this was
+        -- the old bottleneck (sync refresh + per-buy re-invoke = seconds
+        -- between purchases).
+        local function refreshCosts()
+            if refreshing then return end
+            refreshing = true
+            task.spawn(function()
+                local fresh = {}
+                for _, id in ipairs(UpgradeChain) do
+                    local ok, res = Tato.invoke("GetUpgradeCost", id)
+                    fresh[id] = ok and Tato.extractCost(res) or nil
+                end
+                for id, cost in pairs(fresh) do
+                    costCache[id] = cost
+                end
+                cacheLoaded = true
+                lastFullRefresh = os.clock()
+                refreshing = false
+            end)
         end
 
         while alive() do
@@ -114,14 +126,17 @@ MacroTab:CreateToggle({
                 end
             end
 
-            -- Buy pass every 0.05s, paused during the pre-prestige grace:
-            -- keep cash (prestige points) instead of spending it
-            if not inGrace and now - lastBuy >= 0.05 then
-                lastBuy = now
+            -- Background cost sync: every 5s (non-blocking)
+            if not cacheLoaded or now - lastFullRefresh >= 5 then
+                refreshCosts()
+            end
 
-                if not cacheLoaded or now - lastFullRefresh >= 10 then
-                    refreshAllCosts()
-                end
+            -- Buy pass every 0.025s, paused during the pre-prestige grace:
+            -- keep cash (prestige points) instead of spending it.
+            -- Buys use cached costs -- if a cached price is stale and too
+            -- low, the server simply rejects that buy (no money lost).
+            if not inGrace and now - lastBuy >= 0.025 then
+                lastBuy = now
 
                 local money = Tato.parseCount(cashLabel.Text)
                 local best, bestCost = nil, -1
@@ -142,9 +157,6 @@ MacroTab:CreateToggle({
                 elseif best then
                     tierBuys[best] = (tierBuys[best] or 0) + 1
                     upg(best)
-                    -- tier leveled up: re-check just its cost
-                    local ok, res = Tato.invoke("GetUpgradeCost", best)
-                    costCache[best] = ok and Tato.extractCost(res) or nil
                 end
             end
 
@@ -154,10 +166,11 @@ MacroTab:CreateToggle({
                 tierBuys = {} -- fresh wave after each prestige
                 costCache = {} -- levels reset -> costs changed
                 cacheLoaded = false
+                refreshCosts()
                 Tato.fire("PerformPrestige")
             end
 
-            task.wait(0.05)
+            task.wait(0.025)
         end
     end),
 })
