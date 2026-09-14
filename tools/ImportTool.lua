@@ -326,6 +326,44 @@ makeButton("Save", 275, 225, ITEM, TEXT, 350).MouseButton1Click:Connect(function
     end
 end)
 
+-- Drag handle: header strip (buttons above it still receive their clicks)
+local UserInputService = game:GetService("UserInputService")
+
+local dragBar = Instance.new("Frame")
+dragBar.Size = UDim2.new(1, 0, 0, 58)
+dragBar.BackgroundTransparency = 1
+dragBar.Active = true
+dragBar.ZIndex = 0 -- stay below buttons/labels so they keep their clicks
+dragBar.Parent = card
+
+do
+    local dragging, dragStart, startPos
+    dragBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = card.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - dragStart
+            card.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
 -- ==================================================================================
 -- Remote spy (Cobalt-class: hookmetamethod __namecall + newcclosure)
 -- Logs FireServer AND InvokeServer with fully serialized args.
@@ -362,6 +400,9 @@ local spyLog = {}
 local spying = false
 local hookInstalled = false
 
+-- Cached BEFORE hooking: never call game services inside a __namecall hook
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local function refreshSpyOutput()
     output.Text = #spyLog > 0 and table.concat(spyLog, "\n") or "-- spy ready: triggers will appear here --"
     outputFrame.CanvasPosition = Vector2.new(0, 1e6)
@@ -373,29 +414,42 @@ local function addSpyLine(line)
         table.remove(spyLog, 1)
     end
     if spying then
-        refreshSpyOutput()
+        task.defer(refreshSpyOutput) -- never touch UI from inside the hook
     end
 end
 
 local function installSpyHook()
     if hookInstalled then return true end
+    if not hookmetamethod or not getnamecallmethod then
+        return false
+    end
+
+    local cc = newcclosure or function(f) return f end
 
     local ok = pcall(function()
         local old
-        old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        old = hookmetamethod(game, "__namecall", cc(function(self, ...)
             local method = getnamecallmethod()
-            if spying
-                and (method == "FireServer" or method == "InvokeServer")
-                and self.Parent
-                and (self.Parent.Name == "Remotes" or self.Parent == game:GetService("ReplicatedStorage")) then
 
-                local parts = {}
-                for _, a in ipairs({ ... }) do
-                    parts[#parts + 1] = fmtValue(a, 1)
-                end
-                local tag = (method == "FireServer") and "Fire" or "Invoke"
-                addSpyLine("[" .. tag .. "] " .. self.Name .. "(" .. table.concat(parts, ", ") .. ")")
+            -- Logging is fully pcall-guarded: if anything here errors,
+            -- the remote call below still goes through untouched.
+            if spying and (method == "FireServer" or method == "InvokeServer") then
+                local n = select("#", ...)
+                local args = { ... }
+
+                pcall(function()
+                    local parent = self.Parent
+                    if parent and (parent.Name == "Remotes" or parent == ReplicatedStorage) then
+                        local parts = {}
+                        for i = 1, n do
+                            parts[#parts + 1] = fmtValue(args[i], 1)
+                        end
+                        local tag = (method == "FireServer") and "Fire" or "Invoke"
+                        addSpyLine("[" .. tag .. "] " .. self.Name .. "(" .. table.concat(parts, ", ") .. ")")
+                    end
+                end)
             end
+
             return old(self, ...)
         end))
     end)
