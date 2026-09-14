@@ -8,20 +8,29 @@ local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+local VERSION = "3.00"
+
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
 -- Registered games: key = main PlaceId
+-- Features: listed in the boot feed by name.
+-- GatedFeatures: shown as masked (•••••• + LOCKED) unless the user passes
+--                the game's Whitelist file (UserId table).
 local Games = {
     [122079988266644] = { -- Idle Potato Game
         Name = "Idle Potato Game",
         UniverseId = 9655897254,
         Script = BASE .. "/idle%20potato%20game/MainScript.lua",
-        Features = { "Sell", "Auto", "Rebirths", "Macro", "Misc", "Shop", "Premium", "Webhook" },
+        Whitelist = BASE .. "/idle%20potato%20game/WhitelistedTaters.lua",
+        Features = { "Sell", "Auto", "Rebirths", "Boosts", "Misc", "Shop", "Macro" },
+        GatedFeatures = { "Premium", "Webhook" },
     },
     -- [PLACE_ID] = {
     --     Name = "Game Name", UniverseId = 0,
     --     Script = BASE .. "/folder/MainScript.lua",
+    --     Whitelist = BASE .. "/folder/WhitelistedTaters.lua",
     --     Features = { "..." },
+    --     GatedFeatures = { "..." },
     -- },
 }
 
@@ -90,20 +99,19 @@ local function createSplash()
     card.Parent = gui
 
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 16)
+    corner.CornerRadius = UDim.new(0, 18)
     corner.Parent = card
 
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(58, 60, 92)
+    stroke.Color = Color3.fromRGB(46, 48, 74)
     stroke.Thickness = 1
-    stroke.Transparency = 0.35
+    stroke.Transparency = 0.25
     stroke.Parent = card
 
-    -- Logo: counter-rotating rings + orbiting dot + pulsing core -------------------
+    -- Header: logo + wordmark + version ----------------------------------------------
     local rings = Instance.new("Frame")
-    rings.AnchorPoint = Vector2.new(0.5, 0)
-    rings.Position = UDim2.new(0.5, 0, 0, 24)
-    rings.Size = UDim2.fromOffset(84, 84)
+    rings.Position = UDim2.fromOffset(24, 22)
+    rings.Size = UDim2.fromOffset(44, 44)
     rings.BackgroundTransparency = 1
     rings.Parent = card
 
@@ -125,12 +133,12 @@ local function createSplash()
         return f
     end
 
-    local ringOuter = ring(82, ACCENT, 2, 0.25)
-    local ringInner = ring(58, ACCENT2, 2, 0.4)
+    local ringOuter = ring(44, ACCENT, 2, 0.2)
+    local ringInner = ring(30, ACCENT2, 1.5, 0.4)
 
-    local orbit = Instance.new("Frame") -- rides the outer ring
-    orbit.Size = UDim2.fromOffset(9, 9)
-    orbit.Position = UDim2.new(1, -4, 0.5, -4)
+    local orbit = Instance.new("Frame")
+    orbit.Size = UDim2.fromOffset(6, 6)
+    orbit.Position = UDim2.new(1, -3, 0.5, 0)
     orbit.AnchorPoint = Vector2.new(0.5, 0.5)
     orbit.BackgroundColor3 = ACCENT2
     orbit.BorderSizePixel = 0
@@ -142,7 +150,7 @@ local function createSplash()
     local core = Instance.new("Frame")
     core.AnchorPoint = Vector2.new(0.5, 0.5)
     core.Position = UDim2.fromScale(0.5, 0.5)
-    core.Size = UDim2.fromOffset(10, 10)
+    core.Size = UDim2.fromOffset(6, 6)
     core.BackgroundColor3 = ACCENT
     core.BorderSizePixel = 0
     core.Parent = rings
@@ -150,25 +158,22 @@ local function createSplash()
     cc.CornerRadius = UDim.new(1, 0)
     cc.Parent = core
 
-    local spin = TweenService:Create(ringOuter,
-        TweenInfo.new(2.4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = 360 })
-    local spinRev = TweenService:Create(ringInner,
-        TweenInfo.new(1.7, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = -360 })
-    local pulse = TweenService:Create(core,
-        TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true), { Size = UDim2.fromOffset(16, 16) })
-    spin:Play()
-    spinRev:Play()
-    pulse:Play()
+    TweenService:Create(ringOuter,
+        TweenInfo.new(2.6, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = 360 }):Play()
+    TweenService:Create(ringInner,
+        TweenInfo.new(1.8, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = -360 }):Play()
+    TweenService:Create(core,
+        TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true),
+        { Size = UDim2.fromOffset(11, 11) }):Play()
 
-    -- Brand ------------------------------------------------------------------------
     local brand = Instance.new("TextLabel")
-    brand.AnchorPoint = Vector2.new(0.5, 0)
-    brand.Position = UDim2.new(0.5, 0, 0, 118)
-    brand.Size = UDim2.new(1, -32, 0, 32)
+    brand.Position = UDim2.fromOffset(80, 24)
+    brand.Size = UDim2.new(1, -160, 0, 24)
     brand.BackgroundTransparency = 1
     brand.Font = Enum.Font.GothamBlack
-    brand.TextSize = 30
+    brand.TextSize = 22
     brand.TextColor3 = TEXT
+    brand.TextXAlignment = Enum.TextXAlignment.Left
     brand.Text = "ToT Nexus"
     brand.Parent = card
 
@@ -178,34 +183,72 @@ local function createSplash()
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
         ColorSequenceKeypoint.new(1, ACCENT2),
     })
-    brandGrad.Rotation = 20
+    brandGrad.Rotation = 15
     brandGrad.Offset = Vector2.new(-1, 0)
     brandGrad.Parent = brand
-
     TweenService:Create(brandGrad,
-        TweenInfo.new(2.2, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1),
+        TweenInfo.new(2.4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1),
         { Offset = Vector2.new(1, 0) }):Play()
 
     local subtitle = Instance.new("TextLabel")
-    subtitle.AnchorPoint = Vector2.new(0.5, 0)
-    subtitle.Position = UDim2.new(0.5, 0, 0, 152)
-    subtitle.Size = UDim2.new(1, -32, 0, 16)
+    subtitle.Position = UDim2.fromOffset(80, 48)
+    subtitle.Size = UDim2.new(1, -160, 0, 14)
     subtitle.BackgroundTransparency = 1
     subtitle.Font = Enum.Font.Gotham
     subtitle.TextSize = 11
     subtitle.TextColor3 = MUTED
-    subtitle.Text = "U N I V E R S A L   H U B"
+    subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    subtitle.Text = "universal hub"
     subtitle.Parent = card
 
-    -- Status line --------------------------------------------------------------------
+    local version = Instance.new("TextLabel")
+    version.AnchorPoint = Vector2.new(1, 0)
+    version.Position = UDim2.new(1, -24, 0, 28)
+    version.Size = UDim2.fromOffset(60, 14)
+    version.BackgroundTransparency = 1
+    version.Font = Enum.Font.GothamMedium
+    version.TextSize = 11
+    version.TextColor3 = MUTED
+    version.TextXAlignment = Enum.TextXAlignment.Right
+    version.Text = "v" .. VERSION
+    version.Parent = card
+
+    -- Divider ------------------------------------------------------------------------
+    local divider = Instance.new("Frame")
+    divider.Position = UDim2.new(0, 24, 0, 82)
+    divider.Size = UDim2.new(1, -48, 0, 1)
+    divider.BackgroundColor3 = Color3.fromRGB(44, 46, 70)
+    divider.BorderSizePixel = 0
+    divider.Parent = card
+    local dgrad = Instance.new("UIGradient")
+    dgrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.85),
+        NumberSequenceKeypoint.new(0.15, 0),
+        NumberSequenceKeypoint.new(0.85, 0),
+        NumberSequenceKeypoint.new(1, 0.85),
+    })
+    dgrad.Parent = divider
+
+    -- Status -------------------------------------------------------------------------
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Position = UDim2.fromOffset(24, 96)
+    statusLabel.Size = UDim2.new(1, -48, 0, 10)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.GothamBold
+    statusLabel.TextSize = 9
+    statusLabel.TextColor3 = Color3.fromRGB(108, 112, 138)
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Text = "STATUS"
+    statusLabel.Parent = card
+
     local status = Instance.new("TextLabel")
-    status.AnchorPoint = Vector2.new(0.5, 0)
-    status.Position = UDim2.new(0.5, 0, 0, 184)
-    status.Size = UDim2.new(1, -32, 0, 18)
+    status.Position = UDim2.fromOffset(24, 110)
+    status.Size = UDim2.new(1, -48, 0, 18)
     status.BackgroundTransparency = 1
     status.Font = Enum.Font.GothamMedium
-    status.TextSize = 14
+    status.TextSize = 13
     status.TextColor3 = TEXT
+    status.TextXAlignment = Enum.TextXAlignment.Left
     status.TextTransparency = 1
     status.Text = ""
     status.Parent = card
@@ -213,8 +256,8 @@ local function createSplash()
     -- Feature feed (new items slide in, old ones push up & clip out) -----------------
     local feed = Instance.new("Frame")
     feed.AnchorPoint = Vector2.new(0, 1)
-    feed.Position = UDim2.new(0, 24, 1, -58)
-    feed.Size = UDim2.new(1, -48, 0, H - 184 - 18 - 58 - 8)
+    feed.Position = UDim2.new(0, 24, 1, -64)
+    feed.Size = UDim2.new(1, -48, 0, H - 140 - 64)
     feed.BackgroundTransparency = 1
     feed.ClipsDescendants = true
     feed.Parent = card
@@ -228,8 +271,8 @@ local function createSplash()
     -- Progress bar -------------------------------------------------------------------
     local track = Instance.new("Frame")
     track.AnchorPoint = Vector2.new(0.5, 1)
-    track.Position = UDim2.new(0.5, 0, 1, -40)
-    track.Size = UDim2.new(1, -48, 0, 4)
+    track.Position = UDim2.new(0.5, 0, 1, -46)
+    track.Size = UDim2.new(1, -48, 0, 3)
     track.BackgroundColor3 = Color3.fromRGB(34, 36, 52)
     track.BorderSizePixel = 0
     track.Parent = card
@@ -250,14 +293,15 @@ local function createSplash()
     fg.Parent = fill
 
     local footer = Instance.new("TextLabel")
-    footer.AnchorPoint = Vector2.new(0.5, 1)
-    footer.Position = UDim2.new(0.5, 0, 1, -18)
-    footer.Size = UDim2.new(1, -32, 0, 14)
+    footer.AnchorPoint = Vector2.new(0, 1)
+    footer.Position = UDim2.new(0, 24, 1, -18)
+    footer.Size = UDim2.new(1, -48, 0, 12)
     footer.BackgroundTransparency = 1
     footer.Font = Enum.Font.Gotham
-    footer.TextSize = 11
+    footer.TextSize = 10
     footer.TextColor3 = MUTED
-    footer.TextTransparency = 0.35
+    footer.TextTransparency = 0.4
+    footer.TextXAlignment = Enum.TextXAlignment.Left
     footer.Text = "ToT Nexus"
     footer.Parent = card
 
@@ -282,10 +326,11 @@ local function createSplash()
         end
     end
 
-    function api.feature(name)
+    -- masked = gated feature for a non-whitelisted user (shown as •••••• / LOCKED)
+    function api.feature(name, masked)
         order = order + 1
 
-        local item = Instance.new("Frame") -- height animates open, content slides up
+        local item = Instance.new("Frame")
         item.Size = UDim2.new(1, 0, 0, 0)
         item.BackgroundTransparency = 1
         item.ClipsDescendants = true
@@ -295,22 +340,22 @@ local function createSplash()
         local inner = Instance.new("Frame")
         inner.Size = UDim2.new(1, 0, 1, 0)
         inner.Position = UDim2.fromScale(0, 1)
-        inner.BackgroundColor3 = ITEM
+        inner.BackgroundColor3 = masked and Color3.fromRGB(21, 22, 33) or ITEM
         inner.BorderSizePixel = 0
         inner.Parent = item
         local ic = Instance.new("UICorner")
-        ic.CornerRadius = UDim.new(0, 8)
+        ic.CornerRadius = UDim.new(0, 6)
         ic.Parent = inner
         local is = Instance.new("UIStroke")
-        is.Color = Color3.fromRGB(48, 50, 74)
-        is.Transparency = 0.5
+        is.Color = Color3.fromRGB(42, 44, 66)
+        is.Transparency = masked and 0.2 or 0.5
         is.Parent = inner
 
         local dot = Instance.new("Frame")
         dot.AnchorPoint = Vector2.new(0, 0.5)
-        dot.Position = UDim2.new(0, 12, 0.5, 0)
-        dot.Size = UDim2.fromOffset(7, 7)
-        dot.BackgroundColor3 = MUTED
+        dot.Position = UDim2.new(0, 10, 0.5, 0)
+        dot.Size = UDim2.fromOffset(6, 6)
+        dot.BackgroundColor3 = Color3.fromRGB(90, 94, 120)
         dot.BorderSizePixel = 0
         dot.Parent = inner
         local dc = Instance.new("UICorner")
@@ -318,41 +363,41 @@ local function createSplash()
         dc.Parent = dot
 
         local label = Instance.new("TextLabel")
-        label.Position = UDim2.new(0, 30, 0, 0)
-        label.Size = UDim2.new(1, -30, 1, 0)
+        label.Position = UDim2.new(0, 26, 0, 0)
+        label.Size = UDim2.new(1, -26, 1, 0)
         label.BackgroundTransparency = 1
         label.Font = Enum.Font.GothamMedium
-        label.TextSize = 13
-        label.TextColor3 = TEXT
+        label.TextSize = 12
+        label.TextColor3 = masked and Color3.fromRGB(108, 112, 138) or TEXT
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Text = name
         label.Parent = inner
 
         local tag = Instance.new("TextLabel")
         tag.AnchorPoint = Vector2.new(1, 0.5)
-        tag.Position = UDim2.new(1, -12, 0.5, 0)
+        tag.Position = UDim2.new(1, -10, 0.5, 0)
         tag.BackgroundTransparency = 1
-        tag.Font = Enum.Font.Gotham
-        tag.TextSize = 10
-        tag.TextColor3 = ACCENT2
+        tag.Font = Enum.Font.GothamBold
+        tag.TextSize = 9
+        tag.TextColor3 = masked and MUTED or ACCENT2
         tag.TextTransparency = 1
-        tag.Text = "LOADED"
+        tag.Text = masked and "LOCKED" or "OK"
         tag.Parent = inner
 
         TweenService:Create(item, TweenInfo.new(0.26, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-            { Size = UDim2.new(1, 0, 0, 34) }):Play()
+            { Size = UDim2.new(1, 0, 0, 30) }):Play()
         TweenService:Create(inner, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
             { Position = UDim2.fromScale(0, 0) }):Play()
         task.delay(0.18, function()
-            TweenService:Create(dot, TweenInfo.new(0.2), { BackgroundColor3 = ACCENT }):Play()
+            if not masked then
+                TweenService:Create(dot, TweenInfo.new(0.2), { BackgroundColor3 = ACCENT }):Play()
+            end
             TweenService:Create(tag, TweenInfo.new(0.25), { TextTransparency = 0 }):Play()
         end)
     end
 
     function api.fail(text)
         api.status(text, RED, 1)
-        spin:Cancel()
-        spinRev:Cancel()
         ringOuter.UIStroke.Color = RED
         ringInner.UIStroke.Color = RED
         core.BackgroundColor3 = RED
@@ -449,6 +494,17 @@ print("[ToT Nexus] Game detected: " .. entry.Name)
 status("Detected: " .. entry.Name, ACCENT2, 0.55)
 task.wait(0.5)
 
+-- Gate check: are gated features visible for this user?
+local whitelistedUser = false
+if entry.GatedFeatures and #entry.GatedFeatures > 0 and entry.Whitelist then
+    local ok, wl = pcall(function()
+        return loadstring(game:HttpGet(entry.Whitelist))()
+    end)
+    whitelistedUser = ok and type(wl) == "table"
+        and type(wl.ids) == "table"
+        and wl.ids[LocalPlayer.UserId] == true
+end
+
 -- Fetch the game script in parallel while the feature feed plays
 local scriptSrc, fetchErr = nil, nil
 task.spawn(function()
@@ -460,13 +516,22 @@ task.spawn(function()
     end
 end)
 
+-- Feature feed: normal features by name, gated ones masked unless whitelisted
+local feedItems = {}
+for _, f in ipairs(entry.Features or {}) do
+    feedItems[#feedItems + 1] = { name = f }
+end
+for _, f in ipairs(entry.GatedFeatures or {}) do
+    feedItems[#feedItems + 1] = { name = whitelistedUser and f or "••••••", masked = not whitelistedUser }
+end
+
 status("Loading features...", nil, 0.6)
-local total = #entry.Features
-for i, feat in ipairs(entry.Features) do
+local total = #feedItems
+for i, feedItem in ipairs(feedItems) do
     if splash then
-        splash.feature(feat)
+        splash.feature(feedItem.name, feedItem.masked)
     end
-    task.wait(0.3)
+    task.wait(0.26)
     if splash then
         splash.status("Loading features... (" .. i .. "/" .. total .. ")", nil, 0.6 + 0.38 * (i / total))
     end
