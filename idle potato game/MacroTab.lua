@@ -1,15 +1,102 @@
--- MacroTab.lua | Timed prestige/sell/upgrade macros
+-- MacroTab.lua | Versatile macro + legacy timed macros
 local Tato = getgenv().Tato
+local Gamedata = getgenv().Gamedata or { KnownIds = { ClickUpgrades = {} } }
 
 local MacroTab = Window:CreateTab("Macro", "bitcoin")
 
 local function sell(n) Tato.fire("SellGoldenPotatoes", n) end
 local function upg(n) Tato.fire("PurchaseClickUpgrade", n) end
 
--- ================================================================
--- Stable macros (identical sequence; KS variant just sells 8B last)
--- ================================================================
-MacroTab:CreateSection("Prestige Macro 15-30")
+-- ==================================================================================
+-- VERSATILE MACRO
+-- - Sells golden AND normal potatoes nonstop
+-- - Auto-buys the click upgrade chain (stronger hands -> the final click)
+--   via live cost checks, most expensive affordable first
+-- - Auto-prestiges on a fixed interval (server rejects if still on cooldown)
+-- ==================================================================================
+MacroTab:CreateSection("Versatile Macro")
+Tato.header(MacroTab, "Versatile Macro")
+
+local UpgradeChain = Gamedata.KnownIds.ClickUpgradeChain or Gamedata.KnownIds.ClickUpgrades
+
+local prestigeInterval = 30
+MacroTab:CreateInput({
+    Name = "Prestige Interval (seconds)",
+    CurrentValue = "",
+    PlaceholderText = "30",
+    RemoveTextAfterFocusLost = false,
+    Flag = "VersatilePrestigeInterval",
+    Callback = function(v)
+        prestigeInterval = math.max(5, tonumber(v) or 30)
+    end,
+})
+
+MacroTab:CreateToggle({
+    Name = "Versatile Macro",
+    CurrentValue = false,
+    Flag = "VersatileMacro",
+    Callback = Tato.loop(function(alive)
+        local player = game:GetService("Players").LocalPlayer
+        local currency = Tato.waitForPath(player.PlayerGui,
+            "PotatoGameGUI", "Background", "ClickerArea", "ClickerContainer", "CurrencyFrame")
+        local goldLabel = Tato.waitForPath(currency, "GoldenRow", "GoldenCount")
+        local potatoLabel = Tato.waitForPath(currency, "PotatoRow", "PotatoCount")
+        local cashLabel = Tato.waitForPath(currency, "CashRow", "CashCount")
+
+        local lastBuyPass, lastPrestige = 0, 0
+
+        while alive() do
+            -- Sell both currencies whenever the counters rise
+            local gold = Tato.parseCount(goldLabel.Text)
+            if gold > 0 then
+                sell(gold)
+            end
+            local potatoes = Tato.parseCount(potatoLabel.Text)
+            if potatoes > 0 then
+                Tato.fire("SellPotatoes", potatoes)
+            end
+
+            local now = os.clock()
+
+            -- Upgrade pass every 2s: buy the most expensive affordable tier
+            if now - lastBuyPass >= 2 then
+                lastBuyPass = now
+                local money = Tato.parseCount(cashLabel.Text)
+                local best, bestCost = nil, -1
+
+                for _, id in ipairs(UpgradeChain) do
+                    local ok, res = Tato.invoke("GetUpgradeCost", id)
+                    local cost = ok and Tato.extractCost(res) or nil
+                    if cost and cost > 0 and cost <= money and cost > bestCost then
+                        best, bestCost = id, cost
+                    end
+                end
+
+                if best then
+                    upg(best)
+                end
+            end
+
+            -- Prestige pass: fire on interval; server rejects while on cooldown
+            if now - lastPrestige >= prestigeInterval then
+                lastPrestige = now
+                Tato.fire("PerformPrestige")
+            end
+
+            task.wait(0.25)
+        end
+    end),
+})
+
+-- ==================================================================================
+-- LEGACY MACROS (kept for compatibility; will be reworked)
+-- ==================================================================================
+MacroTab:CreateDivider()
+MacroTab:CreateSection("Legacy")
+Tato.header(MacroTab, "Legacy Macros")
+
+-- Stable macros (identical sequence; KS variant just sells 8B last) ---------------
+MacroTab:CreateSection("Stable Macro 15-30")
 Tato.header(MacroTab, "Stable Macro")
 
 local function stableMacro(finalSell)
@@ -47,9 +134,7 @@ MacroTab:CreateToggle({
     Callback = Tato.loop(function() stableMacro(8000000000) end),
 })
 
--- ================================================================
--- SuperHuman macro (data-driven: {upgrade key | "sell" | "prestige", amount, delay})
--- ================================================================
+-- SuperHuman macro (data-driven: {action, amount, delay}) -------------------------
 MacroTab:CreateDivider()
 Tato.header(MacroTab, "SuperHuman Macro")
 
@@ -90,7 +175,7 @@ local function runSuperHuman(alive)
 
         if action == "prestige" then
             Tato.fire("PerformPrestige")
-        elseif action == "sell" or type(action) == "number" then
+        elseif type(action) == "number" then
             sell(value or action)
         else
             upg(Upgrades[action])
@@ -107,9 +192,7 @@ MacroTab:CreateToggle({
     Callback = Tato.loop(runSuperHuman),
 })
 
--- ================================================================
--- Generator macro (number = sell amount, string = generator to buy)
--- ================================================================
+-- Generator macro (number = sell amount, string = generator to buy) ---------------
 MacroTab:CreateDivider()
 Tato.header(MacroTab, "Generator Macro")
 

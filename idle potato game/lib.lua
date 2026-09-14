@@ -56,6 +56,15 @@ function Tato.invoke(name, ...)
     return ok, result
 end
 
+-- Pull a cost/price number out of a RemoteFunction response
+function Tato.extractCost(v)
+    if type(v) == "number" then return v end
+    if type(v) == "table" then
+        return v.cost or v.price or v.Cost or v.Price or (type(v[1]) == "number" and v[1])
+    end
+    return nil
+end
+
 -- Bind a toggle callback to a repeating loop.
 -- fn(alive) must yield (task.wait) at least once per pass.
 -- alive() returns false once toggled off, so long macros can bail mid-sequence.

@@ -48,11 +48,7 @@ local function cash()
 end
 
 local function extractCost(v)
-    if type(v) == "number" then return v end
-    if type(v) == "table" then
-        return v.cost or v.price or v.Cost or v.Price or (type(v[1]) == "number" and v[1])
-    end
-    return nil
+    return Tato.extractCost(v)
 end
 
 -- One pass: find the most expensive affordable id and buy it

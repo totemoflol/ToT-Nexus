@@ -211,6 +211,17 @@ Gamedata.Admin = {
 -- KNOWN ARGUMENT IDS (from working scripts)
 -- =====================================================================
 Gamedata.KnownIds = {
+    -- Full click upgrade chain: "stronger hands" -> "the final click".
+    -- MIDDLE TIERS UNVERIFIED -- spy-log a purchase of each tier to complete.
+    ClickUpgradeChain = {
+        "stronger_hands",
+        "grandfathers_wisdom",
+        "infinite_energy",
+        "omnipotato_blessing",
+        "transcendent_harvest",
+        "galactic_harvest",
+        "the_final_click",
+    },
     ClickUpgrades = {
         "grandfathers_wisdom",
         "infinite_energy",
