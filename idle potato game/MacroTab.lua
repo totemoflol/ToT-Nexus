@@ -27,7 +27,22 @@ MacroTab:CreateInput({
     RemoveTextAfterFocusLost = false,
     Flag = "VersatilePrestigeInterval",
     Callback = function(v)
-        prestigeInterval = math.max(5, tonumber(v) or 30)
+        prestigeInterval = math.max(5, tonumber(v) or 31)
+    end,
+})
+
+-- Per-tier buy cap: stops over-leveling cheap tiers (+1s) while better tiers
+-- (+100000s) sit unbought at the same price. When every tier hits the cap,
+-- a new wave starts (counters reset).
+local maxTierBuys = 15
+MacroTab:CreateInput({
+    Name = "Max Buys Per Tier (per wave)",
+    CurrentValue = "",
+    PlaceholderText = "15",
+    RemoveTextAfterFocusLost = false,
+    Flag = "VersatileMaxBuys",
+    Callback = function(v)
+        maxTierBuys = math.max(1, math.floor(tonumber(v) or 15))
     end,
 })
 
@@ -44,6 +59,7 @@ MacroTab:CreateToggle({
         local cashLabel = Tato.waitForPath(currency, "CashRow", "CashCount")
 
         local lastBuyPass, lastPrestige = 0, 0
+        local tierBuys = {} -- purchases per tier this wave
 
         while alive() do
             -- Sell both currencies whenever the counters rise
@@ -59,20 +75,28 @@ MacroTab:CreateToggle({
             local now = os.clock()
 
             -- Upgrade pass every 2s: buy the most expensive affordable tier
+            -- that hasn't hit the per-tier cap this wave
             if now - lastBuyPass >= 2 then
                 lastBuyPass = now
                 local money = Tato.parseCount(cashLabel.Text)
                 local best, bestCost = nil, -1
+                local allCapped = true
 
                 for _, id in ipairs(UpgradeChain) do
-                    local ok, res = Tato.invoke("GetUpgradeCost", id)
-                    local cost = ok and Tato.extractCost(res) or nil
-                    if cost and cost > 0 and cost <= money and cost > bestCost then
-                        best, bestCost = id, cost
+                    if (tierBuys[id] or 0) < maxTierBuys then
+                        allCapped = false
+                        local ok, res = Tato.invoke("GetUpgradeCost", id)
+                        local cost = ok and Tato.extractCost(res) or nil
+                        if cost and cost > 0 and cost <= money and cost > bestCost then
+                            best, bestCost = id, cost
+                        end
                     end
                 end
 
-                if best then
+                if allCapped then
+                    tierBuys = {} -- fresh wave: all tiers were capped
+                elseif best then
+                    tierBuys[best] = (tierBuys[best] or 0) + 1
                     upg(best)
                 end
             end
