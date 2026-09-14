@@ -48,7 +48,7 @@ end
 
 -- Remote reference data (ids for smart buyer / potions)
 pcall(function()
-    getgenv().Gamedata = loadstring(game:HttpGet(BASE .. "/idle%20potato%20game/gamedata.lua"))()
+    getgenv().Gamedata = loadstring(game:HttpGet(BASE .. "/gamedata.lua"))()
 end)
 
 -- Load helpers, whitelist, then all tabs (order matters)
