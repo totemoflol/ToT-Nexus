@@ -1,14 +1,17 @@
 -- ==================================================================================
 -- ToT Nexus | Universal Loader + branded splash UI
--- Detects the current game, plays the boot sequence, then executes the game script.
+-- Detects the current game, shows its Roblox icon, plays the boot sequence,
+-- then executes the game script. All network fetches run in parallel.
 -- ==================================================================================
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 
-local VERSION = "3.00"
+local VERSION = "3.10"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
@@ -70,6 +73,26 @@ local function detectGame()
     return entry
 end
 
+-- Game photo via the Roblox thumbnails API -> CDN url (nil on failure)
+local function fetchGameIcon(placeId)
+    local ok, body = pcall(function()
+        return game:HttpGet("https://thumbnails.roblox.com/v1/places/gameicons?placeIds="
+            .. placeId .. "&size=512x512&format=Png")
+    end)
+    if not ok then return nil end
+
+    local okD, data = pcall(function() return HttpService:JSONDecode(body) end)
+    if not okD or type(data) ~= "table" or type(data.data) ~= "table" then
+        return nil
+    end
+
+    local entry = data.data[1]
+    if entry and entry.state == "Completed" and entry.imageUrl then
+        return entry.imageUrl
+    end
+    return nil
+end
+
 -- ==================================================================================
 -- Splash UI
 -- ==================================================================================
@@ -86,6 +109,7 @@ local function createSplash()
     local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(400, 480)
     local W = math.min(400, math.floor(vp.X * 0.92))
     local H = math.min(480, math.floor(vp.Y * 0.9))
+    local compact = H < 380 -- small screens: skip the game showcase panel
 
     local card = Instance.new("CanvasGroup")
     card.Name = "Card"
@@ -107,6 +131,51 @@ local function createSplash()
     stroke.Thickness = 1
     stroke.Transparency = 0.25
     stroke.Parent = card
+
+    -- ==============================================================================
+    -- Ambience: drifting starfield + breathing border (cheap: two looped tweens,
+    -- stars are 2-3px frames with linear drift, no per-frame Lua)
+    -- ==============================================================================
+    local stars = {}
+    for i = 1, 12 do
+        local star = Instance.new("Frame")
+        star.Size = UDim2.fromOffset(math.random(2, 3), math.random(2, 3))
+        star.Position = UDim2.new(math.random(), 0, math.random(), 0)
+        star.BackgroundColor3 = (i % 3 == 0) and ACCENT2 or Color3.fromRGB(210, 214, 240)
+        star.BackgroundTransparency = 0.55 + math.random() * 0.3
+        star.BorderSizePixel = 0
+        star.Parent = card
+        stars[i] = star
+
+        task.spawn(function()
+            while star.Parent do
+                local riseH = math.random(60, 120)
+                local dur = 4 + math.random() * 4
+                star.Position = UDim2.new(math.random(), 0, 1, math.random(0, 40))
+                local t = TweenService:Create(star,
+                    TweenInfo.new(dur, Enum.EasingStyle.Linear),
+                    { Position = star.Position - UDim2.fromOffset(0, riseH) })
+                t:Play()
+                t.Completed:Wait()
+            end
+        end)
+    end
+
+    task.spawn(function()
+        while gui.Parent do
+            local up = TweenService:Create(stroke,
+                TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                { Color = ACCENT, Transparency = 0.1 })
+            up:Play()
+            up.Completed:Wait()
+            if not gui.Parent then break end
+            local down = TweenService:Create(stroke,
+                TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                { Color = Color3.fromRGB(46, 48, 74), Transparency = 0.25 })
+            down:Play()
+            down.Completed:Wait()
+        end
+    end)
 
     -- Header: logo + wordmark + version ----------------------------------------------
     local rings = Instance.new("Frame")
@@ -253,14 +322,82 @@ local function createSplash()
     status.Text = ""
     status.Parent = card
 
+    -- Game showcase (icon + name), revealed on detection ----------------------------
+    local showcase, icon, iconStroke, gameNameLabel
+    if not compact then
+        showcase = Instance.new("CanvasGroup")
+        showcase.Position = UDim2.fromOffset(24, 136)
+        showcase.Size = UDim2.new(1, -48, 0, 76)
+        showcase.BackgroundTransparency = 1
+        showcase.GroupTransparency = 1
+        showcase.Visible = false
+        showcase.Parent = card
+
+        icon = Instance.new("ImageLabel")
+        icon.AnchorPoint = Vector2.new(0, 0.5)
+        icon.Position = UDim2.new(0, 2, 0.5, 0)
+        icon.Size = UDim2.fromOffset(58, 58)
+        icon.BackgroundColor3 = ITEM
+        icon.BorderSizePixel = 0
+        icon.Image = ""
+        icon.Parent = showcase
+        local iconCorner = Instance.new("UICorner")
+        iconCorner.CornerRadius = UDim.new(0, 14)
+        iconCorner.Parent = icon
+        iconStroke = Instance.new("UIStroke")
+        iconStroke.Color = ACCENT
+        iconStroke.Thickness = 1.5
+        iconStroke.Transparency = 0.45
+        iconStroke.Parent = icon
+
+        local detTag = Instance.new("TextLabel")
+        detTag.Position = UDim2.fromOffset(74, 14)
+        detTag.Size = UDim2.new(1, -80, 0, 10)
+        detTag.BackgroundTransparency = 1
+        detTag.Font = Enum.Font.GothamBold
+        detTag.TextSize = 9
+        detTag.TextColor3 = ACCENT2
+        detTag.TextXAlignment = Enum.TextXAlignment.Left
+        detTag.Text = "GAME DETECTED"
+        detTag.Parent = showcase
+
+        gameNameLabel = Instance.new("TextLabel")
+        gameNameLabel.Position = UDim2.fromOffset(74, 28)
+        gameNameLabel.Size = UDim2.new(1, -80, 0, 20)
+        gameNameLabel.BackgroundTransparency = 1
+        gameNameLabel.Font = Enum.Font.GothamBold
+        gameNameLabel.TextSize = 15
+        gameNameLabel.TextColor3 = TEXT
+        gameNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        gameNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        gameNameLabel.Text = ""
+        gameNameLabel.Parent = showcase
+
+        local detLine = Instance.new("TextLabel")
+        detLine.Position = UDim2.fromOffset(74, 50)
+        detLine.Size = UDim2.new(1, -80, 0, 12)
+        detLine.BackgroundTransparency = 1
+        detLine.Font = Enum.Font.Gotham
+        detLine.TextSize = 10
+        detLine.TextColor3 = MUTED
+        detLine.TextXAlignment = Enum.TextXAlignment.Left
+        detLine.Text = "loading modules..."
+        detLine.Parent = showcase
+    end
+
     -- Feature feed (new items slide in, old ones push up & clip out) -----------------
     local feed = Instance.new("Frame")
-    feed.AnchorPoint = Vector2.new(0, 1)
-    feed.Position = UDim2.new(0, 24, 1, -64)
-    feed.Size = UDim2.new(1, -48, 0, H - 140 - 64)
     feed.BackgroundTransparency = 1
     feed.ClipsDescendants = true
     feed.Parent = card
+    if compact then
+        feed.AnchorPoint = Vector2.new(0, 1)
+        feed.Position = UDim2.new(0, 24, 1, -64)
+        feed.Size = UDim2.new(1, -48, 0, H - 140 - 64)
+    else
+        feed.Position = UDim2.fromOffset(24, 222)
+        feed.Size = UDim2.new(1, -48, 1, -286)
+    end
 
     local layout = Instance.new("UIListLayout")
     layout.Padding = UDim.new(0, 6)
@@ -324,6 +461,27 @@ local function createSplash()
             TweenService:Create(fill, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
                 { Size = UDim2.fromScale(frac, 1) }):Play()
         end
+    end
+
+    -- Game showcase: Roblox icon + name, popped in with a bounce
+    function api.showGame(iconUrl, name)
+        if not showcase then return end
+        gameNameLabel.Text = name or ""
+
+        if iconUrl then
+            pcall(function()
+                icon.Image = iconUrl
+                ContentProvider:PreloadAsync({ icon })
+            end)
+        end
+
+        showcase.Visible = true
+        TweenService:Create(showcase, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+            { GroupTransparency = 0 }):Play()
+        TweenService:Create(icon, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            { Size = UDim2.fromOffset(72, 72) }):Play()
+        TweenService:Create(iconStroke, TweenInfo.new(0.5, Enum.EasingStyle.Quad),
+            { Transparency = 0.1 }):Play()
     end
 
     -- masked = gated feature for a non-whitelisted user (shown as •••••• / LOCKED)
@@ -436,7 +594,7 @@ local function createSplash()
 end
 
 -- ==================================================================================
--- Boot sequence
+-- Boot sequence (all network fetches start in parallel up front)
 -- ==================================================================================
 print("[ToT Nexus] Loader starting")
 
@@ -511,47 +669,76 @@ end
 
 print("[ToT Nexus] Game detected: " .. entry.Name)
 status("Detected: " .. entry.Name, ACCENT2, 0.55)
-task.wait(0.5)
 
--- Gate check: are gated features visible for this user?
-local whitelistedUser = false
-if entry.GatedFeatures and #entry.GatedFeatures > 0 and entry.Whitelist then
-    local ok, wl = pcall(function()
-        return loadstring(game:HttpGet(entry.Whitelist))()
+-- Parallel fetch crew: game script, game icon, game whitelist, global whitelist
+local scriptSrc, fetchErr, iconUrl = nil, nil, nil
+local gameWl, globalWl = nil, nil
+local done = { script = false, icon = false, gameWl = not entry.Whitelist, globalWl = false }
+
+task.spawn(function()
+    local ok, src = pcall(function() return game:HttpGet(entry.Script) end)
+    if ok then scriptSrc = src else fetchErr = src end
+    done.script = true
+end)
+
+task.spawn(function()
+    iconUrl = fetchGameIcon(game.PlaceId)
+    done.icon = true
+end)
+
+if entry.Whitelist then
+    task.spawn(function()
+        local ok, wl = pcall(function()
+            return loadstring(game:HttpGet(entry.Whitelist))()
+        end)
+        if ok then gameWl = wl end
+        done.gameWl = true
     end)
-    whitelistedUser = ok and type(wl) == "table"
-        and type(wl.ids) == "table"
-        and wl.ids[LocalPlayer.UserId] == true
 end
 
--- Global whitelist gate (admin panel button window during loading)
-do
+task.spawn(function()
     local ok, gwl = pcall(function()
         return loadstring(game:HttpGet(BASE .. "/Whitelist.lua"))()
     end)
-    local globalAllowed = ok and type(gwl) == "table"
-        and ((gwl.ids and gwl.ids[LocalPlayer.UserId] == true)
-            or (gwl.names and gwl.names[string.lower(LocalPlayer.Name)] == true))
+    if ok then globalWl = gwl end
+    done.globalWl = true
+end)
 
-    if globalAllowed and splash then
-        splash.adminButton(function()
-            pcall(function()
-                loadstring(game:HttpGet(BASE .. "/tools/AdminPanel.lua"))()
-            end)
-        end)
-    end
+-- Showcase the detected game while the fetches run (brief wait for the icon)
+local iconWait = 0
+while not done.icon and iconWait < 1.5 do
+    task.wait(0.05)
+    iconWait = iconWait + 0.05
+end
+if splash then
+    splash.showGame(iconUrl, entry.Name)
+end
+task.wait(0.4)
+
+-- Gate check: are gated features visible for this user? (join the parallel fetch, 3s cap)
+local joinStart = os.clock()
+while not (done.gameWl and done.globalWl) and os.clock() - joinStart < 3 do
+    task.wait(0.05)
 end
 
--- Fetch the game script in parallel while the feature feed plays
-local scriptSrc, fetchErr = nil, nil
-task.spawn(function()
-    local ok, src = pcall(function() return game:HttpGet(entry.Script) end)
-    if ok then
-        scriptSrc = src
-    else
-        fetchErr = src
-    end
-end)
+local whitelistedUser = false
+if entry.GatedFeatures and #entry.GatedFeatures > 0 then
+    whitelistedUser = type(gameWl) == "table"
+        and type(gameWl.ids) == "table"
+        and gameWl.ids[LocalPlayer.UserId] == true
+end
+
+-- Global whitelist gate (admin panel button window during loading)
+if type(globalWl) == "table"
+    and ((globalWl.ids and globalWl.ids[LocalPlayer.UserId] == true)
+        or (globalWl.names and globalWl.names[string.lower(LocalPlayer.Name)] == true))
+    and splash then
+    splash.adminButton(function()
+        pcall(function()
+            loadstring(game:HttpGet(BASE .. "/tools/AdminPanel.lua"))()
+        end)
+    end)
+end
 
 -- Feature feed: normal features by name, gated ones masked unless whitelisted
 local feedItems = {}
@@ -574,7 +761,7 @@ for i, feedItem in ipairs(feedItems) do
     end
 end
 
--- Wait for the parallel fetch (15s timeout)
+-- Wait for the parallel script fetch (15s timeout)
 local waited = 0
 while not scriptSrc and not fetchErr and waited < 15 do
     task.wait(0.05)

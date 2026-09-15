@@ -47,16 +47,47 @@ for _, s in ipairs({ { 5793681247, 1, false }, { 18967588612, 2, true } }) do
 end
 
 -- Remote reference data (ids for smart buyer / potions)
-pcall(function()
-    getgenv().Gamedata = loadstring(game:HttpGet(BASE .. "/gamedata.lua"))()
-end)
+-- All modules are prefetched in parallel (network), then executed in order
+-- (execution order matters: lib first, whitelist before gated tabs).
+do
+    local Modules = {
+        "lib", "WhitelistedTaters", "SellTab", "AutoTab",
+        "RebirthTab", "MiscTab", "ShopTab", "BoostsTab", "MacroTab", "Premium",
+    }
 
--- Load helpers, whitelist, then all tabs (order matters)
-for _, file in ipairs({
-    "lib", "WhitelistedTaters", "SellTab", "AutoTab",
-    "RebirthTab", "MiscTab", "ShopTab", "BoostsTab", "MacroTab", "Premium",
-}) do
-    loadstring(game:HttpGet(BASE .. "/" .. file .. ".lua"))()
+    local src = {}
+    local function prefetch(key, url)
+        task.spawn(function()
+            local ok, body = pcall(game.HttpGet, game, url)
+            src[key] = ok and body or false
+        end)
+    end
+
+    prefetch("$gamedata", BASE .. "/gamedata.lua")
+    for _, m in ipairs(Modules) do
+        prefetch(m, BASE .. "/" .. m .. ".lua")
+    end
+
+    local function await(key)
+        while src[key] == nil do task.wait() end
+        return src[key]
+    end
+
+    pcall(function()
+        local gd = await("$gamedata")
+        if gd then
+            getgenv().Gamedata = loadstring(gd)()
+        end
+    end)
+
+    for _, m in ipairs(Modules) do
+        local body = await(m)
+        if body then
+            loadstring(body)()
+        else
+            warn("[Tato Hub] failed to fetch " .. m)
+        end
+    end
 end
 
 -- Anti-AFK
