@@ -6,7 +6,15 @@ getgenv().Tato = Tato
 
 Tato.Icon = 4483362458
 
-local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+-- Remotes folder, resolved lazily so loading this lib never blocks on
+-- replication (first fire/invoke waits instead)
+local Remotes = nil
+local function getRemotes()
+    if not Remotes then
+        Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+    end
+    return Remotes
+end
 
 -- Wait for a nested instance chain (e.g. PlayerGui > GUI > Frame > Label)
 function Tato.waitForPath(root, ...)
@@ -38,16 +46,14 @@ function Tato.parseCount(text)
     return math.floor(value)
 end
 
-Tato.Remotes = Remotes
-
 -- Fire a game remote by name
 function Tato.fire(name, ...)
-    Remotes:WaitForChild(name):FireServer(...)
+    getRemotes():WaitForChild(name):FireServer(...)
 end
 
 -- Invoke a RemoteFunction safely -> ok, result
 function Tato.invoke(name, ...)
-    local remote = Remotes:WaitForChild(name, 5)
+    local remote = getRemotes():WaitForChild(name, 5)
     if not remote then return false, "remote not found" end
     local args = { ... }
     local ok, result = pcall(function()
@@ -107,9 +113,15 @@ end
 
 local WHITELIST_URL = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main/idle%20potato%20game/WhitelistedTaters.lua"
 
--- Premium check. SECURITY: fetches the whitelist directly and keeps it local,
--- so spoofing getgenv() (e.g. whitelisting yourself) has no effect.
+-- Premium check. SECURITY: uses the whitelist table cached by MainScript at
+-- load (already fetched in parallel); falls back to a direct fetch only if
+-- the cache is missing, so spoofing getgenv() has no effect either way.
 function Tato.isWhitelisted()
+    local cached = Tato.whitelist
+    if type(cached) == "table" and type(cached.ids) == "table" then
+        return cached.ids[Players.LocalPlayer.UserId] == true
+    end
+
     local ok, wl = pcall(function()
         return loadstring(game:HttpGet(WHITELIST_URL))()
     end)

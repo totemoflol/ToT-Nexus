@@ -17,7 +17,21 @@ local Configs = {
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main/idle%20potato%20game"
 
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+-- Rayfield interface: reuse the source the loader already fetched when
+-- available (saves a full re-download of the library)
+local Rayfield
+do
+    local cachedSrc = getgenv().TatoNexusRayfieldSrc
+    if cachedSrc then
+        local ok, lib = pcall(function() return loadstring(cachedSrc)() end)
+        if ok and type(lib) == "table" then
+            Rayfield = lib
+        end
+    end
+    if not Rayfield then
+        Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+    end
+end
 local Window = Rayfield:CreateWindow({
     Name = "Potato Script V3",
     Icon = "venetian-mask",
@@ -83,7 +97,14 @@ do
     for _, m in ipairs(Modules) do
         local body = await(m)
         if body then
-            loadstring(body)()
+            -- pcall so a broken tab never kills the rest of the chain
+            local ok, res = pcall(loadstring(body))
+            if not ok then
+                warn("[Tato Hub] " .. m .. " error: " .. tostring(res))
+            elseif m == "WhitelistedTaters" and type(res) == "table" then
+                -- cache for Tato.isWhitelisted (Premium loads with 0 network)
+                getgenv().Tato.whitelist = res
+            end
         else
             warn("[Tato Hub] failed to fetch " .. m)
         end

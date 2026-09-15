@@ -3,15 +3,31 @@ local Tato = getgenv().Tato
 
 local MiscTab = Window:CreateTab("Misc", "app-window")
 
-local NotificationContainer = game:GetService("Players").LocalPlayer.PlayerGui
-    :WaitForChild("PotatoGameGUI"):WaitForChild("NotificationContainer")
+-- Notification container is resolved lazily (loading this tab never blocks
+-- on the game GUI replicating)
+local notifContainer = nil
+local function setNotifications(hidden)
+    task.spawn(function()
+        if not notifContainer then
+            local ok, c = pcall(function()
+                return game:GetService("Players").LocalPlayer.PlayerGui
+                    :WaitForChild("PotatoGameGUI", 30)
+                    :WaitForChild("NotificationContainer", 10)
+            end)
+            if ok then notifContainer = c end
+        end
+        if notifContainer then
+            notifContainer.Visible = not hidden
+        end
+    end)
+end
 
 MiscTab:CreateToggle({
     Name = "Disable Notifications",
     CurrentValue = false,
     Flag = "DisableNotifications",
     Callback = function(state)
-        NotificationContainer.Visible = not state
+        setNotifications(state)
     end,
 })
 

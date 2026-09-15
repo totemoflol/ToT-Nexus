@@ -634,7 +634,14 @@ status("Initializing...", nil, 0.06)
 task.wait(0.4)
 
 status("Fetching interface assets...", nil, 0.2)
-pcall(function() game:HttpGet("https://sirius.menu/rayfield") end) -- warm the library
+-- Warm the library AND keep the source: MainScript reuses it instead of
+-- re-downloading ~200KB of Rayfield
+task.spawn(function()
+    local ok, src = pcall(function() return game:HttpGet("https://sirius.menu/rayfield") end)
+    if ok and type(src) == "string" and #src > 1000 then
+        getgenv().TatoNexusRayfieldSrc = src
+    end
+end)
 
 status("Detecting game...", nil, 0.38)
 task.wait(0.25)
