@@ -323,7 +323,7 @@ local function createSplash()
     status.Parent = card
 
     -- Game showcase (icon + name), revealed on detection ----------------------------
-    local showcase, icon, iconStroke, gameNameLabel
+    local showcase, icon, iconStroke, gameNameLabel, detTag, detLine
     if not compact then
         showcase = Instance.new("CanvasGroup")
         showcase.Position = UDim2.fromOffset(24, 136)
@@ -350,7 +350,7 @@ local function createSplash()
         iconStroke.Transparency = 0.45
         iconStroke.Parent = icon
 
-        local detTag = Instance.new("TextLabel")
+        detTag = Instance.new("TextLabel")
         detTag.Position = UDim2.fromOffset(74, 14)
         detTag.Size = UDim2.new(1, -80, 0, 10)
         detTag.BackgroundTransparency = 1
@@ -373,7 +373,7 @@ local function createSplash()
         gameNameLabel.Text = ""
         gameNameLabel.Parent = showcase
 
-        local detLine = Instance.new("TextLabel")
+        detLine = Instance.new("TextLabel")
         detLine.Position = UDim2.fromOffset(74, 50)
         detLine.Size = UDim2.new(1, -80, 0, 12)
         detLine.BackgroundTransparency = 1
@@ -463,10 +463,15 @@ local function createSplash()
         end
     end
 
-    -- Game showcase: Roblox icon + name, popped in with a bounce
-    function api.showGame(iconUrl, name)
+    -- Game showcase: Roblox icon + name, popped in with a bounce.
+    -- supported=false -> "UNSUPPORTED GAME" styling (used when no script exists)
+    function api.showGame(iconUrl, name, supported)
         if not showcase then return end
+        if supported == nil then supported = true end
         gameNameLabel.Text = name or ""
+        detTag.Text = supported and "GAME DETECTED" or "UNSUPPORTED GAME"
+        detTag.TextColor3 = supported and ACCENT2 or RED
+        detLine.Text = supported and "loading modules..." or "no script for this game yet"
 
         if iconUrl then
             pcall(function()
@@ -656,8 +661,29 @@ if not entry then
     end
 
     print("[ToT Nexus] Unsupported game: " .. gameName .. " (PlaceId: " .. game.PlaceId .. ")")
+
+    -- Still showcase the game: Roblox icon + name, in "unsupported" styling
+    status("Detected: " .. gameName, ACCENT2, 0.55)
+
+    local iconUrl = nil
+    local iconDone = false
+    task.spawn(function()
+        iconUrl = fetchGameIcon(game.PlaceId)
+        iconDone = true
+    end)
+
+    local iconWait = 0
+    while not iconDone and iconWait < 1.5 do
+        task.wait(0.05)
+        iconWait = iconWait + 0.05
+    end
     if splash then
-        splash.fail("Unsupported: " .. gameName)
+        splash.showGame(iconUrl, gameName, false)
+    end
+    task.wait(0.4)
+
+    if splash then
+        splash.fail("Game not supported")
     end
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification", {
@@ -667,7 +693,7 @@ if not entry then
         })
     end)
     task.spawn(function()
-        task.wait(2)
+        task.wait(3)
         if splash then splash.finish() end
     end)
     startImportTool()
