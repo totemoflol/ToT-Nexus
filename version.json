@@ -1,0 +1,6 @@
+{
+  "version": "3.11",
+  "build": "2026.11.20.2",
+  "channel": "main",
+  "notes": "Adds version mismatch detection and cache-busted script fetching."
+}
