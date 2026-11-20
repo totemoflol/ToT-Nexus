@@ -468,6 +468,7 @@ return function(config)
         if activeEsp.statusDot and activeEsp.statusDot.Parent then activeEsp.statusDot.BackgroundColor3=on and GREEN or RED end
         if activeEsp.statusText and activeEsp.statusText.Parent then activeEsp.statusText.Text=on and "ACTIVE" or "OFF"; activeEsp.statusText.TextColor3=on and GREEN or MUTED end
         if activeEsp.detailStatus and activeEsp.detailStatus.Parent then activeEsp.detailStatus.Text=on and "ESP IS ACTIVE · TRACKING PLAYERS" or "ESP IS OFF · READY TO ENABLE"; activeEsp.detailStatus.TextColor3=on and GREEN or MUTED end
+        if activeEsp.detailDot and activeEsp.detailDot.Parent then activeEsp.detailDot.BackgroundColor3=on and GREEN or RED end
         if activeEsp.toggleButton and activeEsp.toggleButton.Parent then activeEsp.toggleButton.Text=on and "■   DISABLE ESP" or "▶   ENABLE ESP"; activeEsp.toggleButton.BackgroundColor3=on and Color3.fromRGB(55,43,83) or ACCENT_DARK end
     end
     local function ec(signal,fn,bucket) local c=signal:Connect(fn); table.insert(bucket or activeEsp.connections,c); return c end
@@ -683,7 +684,6 @@ return function(config)
             label(toolCard, "Player outlines · team colors · visibility", UDim2.fromOffset(87, 37), UDim2.new(1, -124, 0, 17), 7, MUTED, Enum.Font.Gotham)
             local statusDot=Instance.new("Frame"); statusDot.AnchorPoint=Vector2.new(0.5,0.5); statusDot.Position=UDim2.new(1,-23,0.5,0); statusDot.Size=UDim2.fromOffset(9,9); statusDot.BackgroundColor3=activeEsp.enabled and GREEN or RED; statusDot.BorderSizePixel=0; statusDot.Parent=toolCard; corner(statusDot,8); activeEsp.statusDot=statusDot
             activeEsp.statusText=label(toolCard,activeEsp.enabled and "ACTIVE" or "OFF",UDim2.new(1,-65,0,0),UDim2.fromOffset(34,86),7,activeEsp.enabled and GREEN or MUTED,Enum.Font.GothamBold,Enum.TextXAlignment.Right)
-            label(toolCard, "›", UDim2.new(1, -33, 0, 0), UDim2.fromOffset(22, 86), 25, CYAN, Enum.Font.Gotham, Enum.TextXAlignment.Center)
 
             toolCard.MouseEnter:Connect(function()
                 tween(toolCard, 0.15, {BackgroundColor3 = PANEL3})
@@ -701,7 +701,7 @@ return function(config)
                 label(dc,"ADVANCED TEAM ESP",UDim2.fromOffset(16,17),UDim2.new(1,-78,0,22),14,TEXT,Enum.Font.GothamBold)
                 label(dc,"PLAYER VISIBILITY & TEAM TRACKING",UDim2.fromOffset(17,42),UDim2.new(1,-34,0,13),7,CYAN,Enum.Font.GothamBold)
                 local sp=Instance.new("Frame"); sp.Position=UDim2.fromOffset(14,68); sp.Size=UDim2.new(1,-28,0,44); sp.BackgroundColor3=PANEL2; sp.BorderSizePixel=0; sp.Parent=dc; corner(sp,9)
-                local dot=Instance.new("Frame"); dot.Position=UDim2.fromOffset(12,17); dot.Size=UDim2.fromOffset(9,9); dot.BackgroundColor3=activeEsp.enabled and GREEN or RED; dot.BorderSizePixel=0; dot.Parent=sp; corner(dot,8)
+                local dot=Instance.new("Frame"); dot.Position=UDim2.fromOffset(12,17); dot.Size=UDim2.fromOffset(9,9); dot.BackgroundColor3=activeEsp.enabled and GREEN or RED; dot.BorderSizePixel=0; dot.Parent=sp; corner(dot,8); activeEsp.detailDot=dot
                 activeEsp.detailStatus=label(sp,"",UDim2.fromOffset(30,0),UDim2.new(1,-42,1,0),8,MUTED,Enum.Font.GothamBold)
                 local toggle=makeButton(dc,activeEsp.enabled and "■   DISABLE ESP" or "▶   ENABLE ESP",UDim2.fromOffset(14,122),UDim2.new(1,-28,0,38),ACCENT_DARK); toggle.TextSize=10; activeEsp.toggleButton=toggle
                 toggle.MouseButton1Click:Connect(function() if activeEsp.enabled then stopEsp() else startEsp() end end)
@@ -709,7 +709,7 @@ return function(config)
                 local outline=Instance.new("UIStroke",panel); outline.Color=Color3.fromRGB(48,54,80); outline.Transparency=0.35
                 label(panel,"VISIBILITY CHECK RATE",UDim2.fromOffset(12,10),UDim2.new(1,-24,0,16),8,MUTED,Enum.Font.GothamBold)
                 label(panel,"Higher values update more frequently but use more CPU.",UDim2.fromOffset(12,29),UDim2.new(1,-24,0,25),7,MUTED,Enum.Font.Gotham)
-                local track=Instance.new("Frame"); track.Position=UDim2.fromOffset(13,75); track.Size=UDim2.new(1,-103,0,6); track.BackgroundColor3=PANEL3; track.BorderSizePixel=0; track.Parent=panel; corner(track,5)
+                local track=Instance.new("Frame"); track.Position=UDim2.fromOffset(13,75); track.Size=UDim2.new(1,-103,0,6); track.BackgroundColor3=PANEL3; track.BorderSizePixel=0; track.Active=true; track.Parent=panel; corner(track,5)
                 local fill=Instance.new("Frame"); fill.Size=UDim2.new((activeEsp.updateRate-1)/59,0,1,0); fill.BackgroundColor3=CYAN; fill.BorderSizePixel=0; fill.Parent=track; corner(fill,5)
                 local knob=Instance.new("Frame"); knob.AnchorPoint=Vector2.new(0.5,0.5); knob.Position=UDim2.new((activeEsp.updateRate-1)/59,0,0.5,0); knob.Size=UDim2.fromOffset(14,14); knob.BackgroundColor3=TEXT; knob.BorderSizePixel=0; knob.Parent=track; corner(knob,8)
                 local box=Instance.new("TextBox"); box.Position=UDim2.new(1,-76,0,61); box.Size=UDim2.fromOffset(62,30); box.BackgroundColor3=PANEL3; box.BorderSizePixel=0; box.Text=tostring(activeEsp.updateRate); box.PlaceholderText="1-60"; box.ClearTextOnFocus=false; box.Font=Enum.Font.GothamBold; box.TextSize=11; box.TextColor3=TEXT; box.Parent=panel; corner(box,7)
@@ -720,10 +720,12 @@ return function(config)
                 local function bind(sig,fn) table.insert(cons,sig:Connect(fn)) end
                 local function moveTo(x) local a=math.clamp((x-track.AbsolutePosition.X)/math.max(track.AbsoluteSize.X,1),0,1); setRate(1+a*59) end
                 bind(track.InputBegan,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; moveTo(i.Position.X) end end)
-                bind(UserInputService.InputChanged,function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then moveTo(i.Position.X) end end)
+                local function dragMove(i) if dragging then moveTo(i.Position.X) end end
+                bind(UserInputService.InputChanged,function(i) if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then dragMove(i) end end)
+                bind(UserInputService.TouchMoved,dragMove)
                 bind(UserInputService.InputEnded,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
                 bind(box.FocusLost,function() local n=tonumber(box.Text); if n then setRate(n) else box.Text=tostring(activeEsp.updateRate) end end)
-                dc.Destroying:Connect(function() for _,c in ipairs(cons) do pcall(function() c:Disconnect() end) end; if activeEsp.detailStatus and activeEsp.detailStatus.Parent==sp then activeEsp.detailStatus=nil end; if activeEsp.toggleButton==toggle then activeEsp.toggleButton=nil end end)
+                dc.Destroying:Connect(function() for _,c in ipairs(cons) do pcall(function() c:Disconnect() end) end; if activeEsp.detailStatus and activeEsp.detailStatus.Parent==sp then activeEsp.detailStatus=nil end; if activeEsp.detailDot==dot then activeEsp.detailDot=nil end; if activeEsp.toggleButton==toggle then activeEsp.toggleButton=nil end end)
                 updateEspUI()
             end)
         end
