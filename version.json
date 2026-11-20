@@ -1,11 +1,10 @@
 {
-  "version": "3.19",
-  "build": "2026.11.20.12",
+  "version": "3.20",
+  "build": "2026.11.20.13",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.12",
-    "GeneralScripts": "2026.11.20.12",
-    "AdvancedTeamESP": "2026.11.20.12"
+    "Loader": "2026.11.20.13",
+    "GeneralScripts": "2026.11.20.13"
   },
-  "notes": "Configurable ESP visibility refresh rate from 1 to 60 checks per second using a slider and numeric input."
+  "notes": "Advanced Team ESP is integrated directly into General Tools with in-page settings and live active status."
 }
