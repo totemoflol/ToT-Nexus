@@ -306,14 +306,7 @@ end
 for _, player in ipairs(Players:GetPlayers()) do trackPlayer(player) end
 connect(Players.PlayerAdded, trackPlayer)
 connect(Players.PlayerRemoving, untrackPlayer)
-local lastRefresh = 0
-connect(RunService.Heartbeat, function()
-    if enabled and alive and os.clock() - lastRefresh >= 2.5 then
-        lastRefresh = os.clock()
-        refreshAll()
-    end
-end)
-
+-- No polling loop: player/character/team events update highlights.
 local function cleanup()
     if not alive then return end
     alive = false
