@@ -102,9 +102,11 @@ end
 
 -- Game photo via the Roblox thumbnails API -> CDN url (nil on failure)
 local function fetchGameIcon(placeId)
-    -- Roblox resolves this URI directly into the experience's official game icon.
-    -- It avoids the extra HttpGet/JSON step that was leaving ImageLabels empty.
-    return "rbxthumb://type=GameIcon&id=" .. tostring(placeId) .. "&w=512&h=512"
+    -- GameIcon uses the experience universe ID (not the root place ID).
+    -- Roblox resolves this URI directly, avoiding a fragile HttpGet/JSON step.
+    local registered = Games[placeId]
+    local universeId = registered and registered.UniverseId or placeId
+    return "rbxthumb://type=GameIcon&id=" .. tostring(universeId) .. "&w=512&h=512"
 end
 
 -- ==================================================================================
