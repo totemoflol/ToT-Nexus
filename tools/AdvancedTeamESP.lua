@@ -1,5 +1,5 @@
 -- ToT Nexus | Advanced Team ESP V5
--- NEXUS_BUILD_ID: 2026.11.20.10
+-- NEXUS_BUILD_ID: 2026.11.20.11
 -- Standalone client-side player ESP UI. Uses native per-limb Highlights with immediate visibility colors.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -52,7 +52,7 @@ end
 
 -- Native Roblox Highlights, one per body part. Color changes are immediate (no tween).
 local MAX_PARTS = 12
-local VISIBILITY_INTERVAL = 0.16
+local VISIBILITY_INTERVAL = 0.10
 local TEAM_INTERVAL = 7
 local highlights = {}
 
@@ -109,18 +109,63 @@ local function applyPlayer(player)
     end
 end
 
-local function canSeePart(origin, part, character, params, excluded)
-    local direction = part.Position - origin
-    for attempt = 1, 3 do
+local function raySeesPart(origin, point, character, params, excluded)
+    local direction = point - origin
+    for attempt = 1, 4 do
         params.FilterDescendantsInstances = excluded
         local result = workspace:Raycast(origin, direction, params)
-        if not result or result.Instance:IsDescendantOf(character) then return true end
+        if not result then return true end
+        if result.Instance:IsDescendantOf(character) then return true end
         local blocker = result.Instance
-        if attempt < 3 and blocker:IsA("BasePart")
-            and (blocker.Transparency >= 0.65 or blocker.Material == Enum.Material.Glass) then
+        if attempt < 4 and blocker:IsA("BasePart")
+            and (blocker.Transparency >= 0.55 or blocker.Material == Enum.Material.Glass) then
             table.insert(excluded, blocker)
         else
             return false
+        end
+    end
+    return false
+end
+
+-- Test the center first, then four points around the camera-facing face.
+-- This avoids marking an entire limb red just because its center is behind cover.
+local function canSeePart(origin, part, character, params, excluded)
+    if raySeesPart(origin, part.Position, character, params, table.clone(excluded)) then
+        return true
+    end
+
+    local localCamera = part.CFrame:PointToObjectSpace(origin)
+    local ax, ay, az = math.abs(localCamera.X), math.abs(localCamera.Y), math.abs(localCamera.Z)
+    local uAxis, vAxis, normalAxis, normalSign
+    local halfU, halfV, halfN
+
+    if ax >= ay and ax >= az then
+        normalAxis, normalSign = "X", localCamera.X >= 0 and 1 or -1
+        uAxis, vAxis = "Y", "Z"
+        halfN, halfU, halfV = part.Size.X/2, part.Size.Y/2, part.Size.Z/2
+    elseif ay >= ax and ay >= az then
+        normalAxis, normalSign = "Y", localCamera.Y >= 0 and 1 or -1
+        uAxis, vAxis = "X", "Z"
+        halfN, halfU, halfV = part.Size.Y/2, part.Size.X/2, part.Size.Z/2
+    else
+        normalAxis, normalSign = "Z", localCamera.Z >= 0 and 1 or -1
+        uAxis, vAxis = "X", "Y"
+        halfN, halfU, halfV = part.Size.Z/2, part.Size.X/2, part.Size.Y/2
+    end
+
+    local offsets = {
+        {0.62, 0}, {-0.62, 0}, {0, 0.62}, {0, -0.62}
+    }
+    for _, offset in ipairs(offsets) do
+        local localPoint = Vector3.zero
+        local coords = {X = 0, Y = 0, Z = 0}
+        coords[normalAxis] = normalSign * halfN * 0.96
+        coords[uAxis] = offset[1] * halfU
+        coords[vAxis] = offset[2] * halfV
+        localPoint = Vector3.new(coords.X, coords.Y, coords.Z)
+        local worldPoint = part.CFrame:PointToWorldSpace(localPoint)
+        if raySeesPart(origin, worldPoint, character, params, table.clone(excluded)) then
+            return true
         end
     end
     return false
