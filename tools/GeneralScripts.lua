@@ -232,15 +232,55 @@ return function(config)
         executeButton.Size = UDim2.new(1, -32, 0, 42)
         executeButton.BackgroundColor3 = gameInfo.Supported and ACCENT or Color3.fromRGB(55, 58, 72)
         executeButton.BorderSizePixel = 0
-        executeButton.Text = gameInfo.Supported and "▶   EXECUTE" or "UNAVAILABLE"
+        executeButton.Text = gameInfo.IsGeneralTools and "ENABLE ESP" or (gameInfo.Supported and "▶   EXECUTE" or "UNAVAILABLE")
         executeButton.TextColor3 = TEXT
         executeButton.TextSize = 12
         executeButton.Font = Enum.Font.GothamBold
         executeButton.AutoButtonColor = gameInfo.Supported
         executeButton.Parent = detail
         Instance.new("UICorner", executeButton).CornerRadius = UDim.new(0, 10)
+        local espEnabled = false
+        local espHighlights = {}
+        local function clearEsp()
+            for _, highlight in ipairs(espHighlights) do
+                if highlight and highlight.Parent then highlight:Destroy() end
+            end
+            table.clear(espHighlights)
+        end
         executeButton.MouseButton1Click:Connect(function()
             if not selected or not selected.Supported then return end
+            if selected.IsGeneralTools then
+                if espEnabled then
+                    clearEsp()
+                    espEnabled = false
+                    executeButton.Text = "ENABLE ESP"
+                    statusLabel.Text = "ESP disabled"
+                    return
+                end
+                local folder = workspace:FindFirstChild("ToTNexusTestTargets")
+                if not folder then
+                    statusLabel.Text = "Create workspace.ToTNexusTestTargets first"
+                    return
+                end
+                for _, target in ipairs(folder:GetChildren()) do
+                    if target:IsA("Model") or target:IsA("BasePart") then
+                        local highlight = Instance.new("Highlight")
+                        highlight.Name = "ToTNexusTestHighlight"
+                        highlight.Adornee = target
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.FillColor = ACCENT
+                        highlight.OutlineColor = CYAN
+                        highlight.FillTransparency = 0.78
+                        highlight.OutlineTransparency = 0.05
+                        highlight.Parent = target
+                        table.insert(espHighlights, highlight)
+                    end
+                end
+                espEnabled = true
+                executeButton.Text = "DISABLE ESP"
+                statusLabel.Text = "Highlighting test targets"
+                return
+            end
             executeButton.Active = false
             executeButton.Text = "LOADING..."
             statusLabel.Text = "Fetching selected game script..."
