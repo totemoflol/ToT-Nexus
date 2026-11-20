@@ -108,6 +108,15 @@ local function fetchGameIcon(placeId)
     local universeId = registered and registered.UniverseId or placeId
     return "rbxthumb://type=GameIcon&id=" .. tostring(universeId) .. "&w=512&h=512"
 end
+local function executeGeneralTool(toolName)
+    if toolName ~= "ESP" then error("Unknown General Tool: " .. tostring(toolName)) end
+    local source = game:HttpGet(BASE .. "/tools/AdvancedTeamESP.lua")
+    assert(type(source) == "string" and #source > 1000, "ESP tool source is empty or unavailable")
+    local fn, compileErr = loadstring(source)
+    assert(fn, "ESP compile error: " .. tostring(compileErr))
+    return fn()
+end
+
 
 -- ==================================================================================
 -- Splash UI
@@ -805,6 +814,7 @@ if not entry then
                     local ran, err = pcall(fn)
                     if not ran then warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(err)) end
                 end,
+                onExecuteTool = executeGeneralTool,
             })
             libraryMounted = true
         end)
@@ -1037,6 +1047,7 @@ if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
             games = catalog,
             currentGameId = currentGame.Id,
             onExecute = executeSelectedGame,
+            onExecuteTool = executeGeneralTool,
         })
     end)
     if not okRun then
