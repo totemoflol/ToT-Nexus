@@ -1,11 +1,11 @@
 {
   "version": "3.12",
-  "build": "2026.11.20.3",
+  "build": "2026.11.20.4",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.3",
-    "GeneralScripts": "2026.11.20.3",
-    "AdvancedTeamESP": "2026.11.20.3"
+    "Loader": "2026.11.20.4",
+    "GeneralScripts": "2026.11.20.4",
+    "AdvancedTeamESP": "2026.11.20.4"
   },
-  "notes": "Adds per-component build verification to detect stale executor downloads and mismatched scripts."
+  "notes": "Per-component build verification; detects stale cached scripts and mixed releases."
 }
