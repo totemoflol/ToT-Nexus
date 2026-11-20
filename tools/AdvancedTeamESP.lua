@@ -1,9 +1,8 @@
 -- ToT Nexus | Advanced Team ESP V3
--- NEXUS_BUILD_ID: 2026.11.20.4
+-- NEXUS_BUILD_ID: 2026.11.20.5
 -- Standalone client-side player ESP UI. Uses a single Highlight per player with low-overhead team coloring.
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local ENV = (getgenv and getgenv()) or _G
@@ -24,6 +23,7 @@ local reopenButton
 
 local COLORS = {
     Ally = Color3.fromRGB(75, 165, 255),
+    Visible = Color3.fromRGB(91, 231, 151),
     Hidden = Color3.fromRGB(255, 82, 105),
     Background = Color3.fromRGB(12, 16, 28),
     Panel = Color3.fromRGB(21, 27, 44),
@@ -80,17 +80,42 @@ local function applyPlayer(player)
         h.Parent = character
         -- Use one native Highlight per character. Avoid per-limb adornments:
         -- they multiply draw calls and can overwhelm lower-end/mobile clients.
-        record = {instance = h, character = character, surfaces = {}}
+        record = {instance = h, character = character, surfaces = {}, visible = false}
         highlights[player] = record
     end
 
     local color
-    -- Keep updates cheap: no per-player raycasts or visibility scans.
+    -- Initial color is team-aware. Visibility is updated by the throttled
+    -- raycast worker below, never from RenderStepped or per-frame callbacks.
     if isAlly(player) then
         color = COLORS.Ally
     else
-        color = COLORS.Hidden
+        color = record.visible and COLORS.Visible or COLORS.Hidden
     end
+    record.instance.FillColor = color
+    record.instance.OutlineColor = color
+end
+
+local function updateVisibility(player)
+    if not alive or not enabled or player == LocalPlayer or isAlly(player) then return end
+    local record = highlights[player]
+    local character = player.Character
+    if not record or not record.instance or not record.instance.Parent or not character then return end
+    local camera = workspace.CurrentCamera
+    local target = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+    if not camera or not target or not target:IsA("BasePart") then return end
+
+    local origin = camera.CFrame.Position
+    local direction = target.Position - origin
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = LocalPlayer.Character and {LocalPlayer.Character} or {}
+    params.IgnoreWater = true
+
+    -- One ray per enemy per interval. No transparent-part scanning or retry chains.
+    local result = workspace:Raycast(origin, direction, params)
+    record.visible = result ~= nil and result.Instance:IsDescendantOf(character)
+    local color = record.visible and COLORS.Visible or COLORS.Hidden
     record.instance.FillColor = color
     record.instance.OutlineColor = color
 end
@@ -232,7 +257,7 @@ local function legendDot(x, color, text)
     makeText(legend, text, UDim2.fromOffset(x + 12, 0), UDim2.fromOffset(75, 27), 8, COLORS.Muted, Enum.Font.GothamMedium)
 end
 legendDot(9, COLORS.Ally, "TEAMMATE")
-legendDot(145, COLORS.Hidden, "ENEMY")
+legendDot(145, COLORS.Visible, "VISIBLE ENEMY")
 
 reopenButton = makeButton(gui, "✦  OPEN ESP", UDim2.new(0, 16, 0, 72), UDim2.fromOffset(116, 34))
 reopenButton.Visible = false
@@ -246,7 +271,7 @@ local function setEnabled(value)
     if enabled then
         toggle.Text = "DISABLE ESP"
         toggle.BackgroundColor3 = Color3.fromRGB(65, 45, 105)
-        status.Text = "ESP IS ACTIVE · TEAM COLORS"
+        status.Text = "ESP ACTIVE · VISIBILITY CHECK"
         status.TextColor3 = COLORS.Cyan
         refreshAll()
     else
@@ -272,41 +297,37 @@ reopenButton.MouseButton1Click:Connect(function()
     reopenButton.Visible = false
 end)
 
--- Event-driven dragging: no permanent RenderStepped callback.
+-- Dedicated drag surface + UserInputService movement handling. No frame polling.
 do
-    local UserInputService = game:GetService("UserInputService")
     local dragging = false
     local dragInput
     local dragStart
     local startPos
-
-    top.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragInput = input
-            dragStart = input.Position
-            startPos = panel.Position
-        end
-    end)
-
+    local function beginDrag(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        dragging = true
+        dragInput = input
+        dragStart = input.Position
+        startPos = panel.Position
+    end
+    top.InputBegan:Connect(beginDrag)
     connect(UserInputService.InputChanged, function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement and dragStart and startPos then
+        if not dragging or not dragStart or not startPos then return end
+        local isMouseMove = input.UserInputType == Enum.UserInputType.MouseMovement
+        local isTouchMove = input.UserInputType == Enum.UserInputType.Touch and dragInput
+            and input.TouchId == dragInput.TouchId
+        if isMouseMove or isTouchMove then
             local delta = input.Position - dragStart
-            panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-
-    connect(UserInputService.TouchMoved, function(input)
-        if dragging and dragInput and input.TouchId == dragInput.TouchId and dragStart and startPos then
-            local delta = input.Position - dragStart
-            panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-
     connect(UserInputService.InputEnded, function(input)
-        if input == dragInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input == dragInput or input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
             dragInput = nil
+            dragStart = nil
+            startPos = nil
         end
     end)
 end
@@ -314,7 +335,20 @@ end
 for _, player in ipairs(Players:GetPlayers()) do trackPlayer(player) end
 connect(Players.PlayerAdded, trackPlayer)
 connect(Players.PlayerRemoving, untrackPlayer)
--- No polling loop: player/character/team events update highlights.
+-- Low-frequency visibility worker: sleeps while disabled and raycasts only once
+-- per enemy per pass. Player/character/team events still own highlight lifecycle.
+task.spawn(function()
+    while alive do
+        if enabled then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then updateVisibility(player) end
+            end
+            task.wait(0.75)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
 local function cleanup()
     if not alive then return end
     alive = false
