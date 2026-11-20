@@ -12,7 +12,7 @@ local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 
 local VERSION = "3.12"
-local BUILD_ID = "2026.11.20.3"
+local BUILD_ID = "2026.11.20.4"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
@@ -37,6 +37,7 @@ local componentStatuses = {
     AdvancedTeamESP = "NOT CHECKED",
 }
 local versionStatus = "UNKNOWN"
+local versionState = { status = versionStatus }
 local function compareBuild(component, localBuild)
     local expected = remoteVersion and remoteVersion.components and remoteVersion.components[component]
     if not expected or not localBuild then return "UNKNOWN" end
@@ -54,6 +55,7 @@ local function refreshOverallVersionStatus()
         if status == "UNKNOWN" or status == "NOT CHECKED" then hasUnknown = true end
     end
     versionStatus = hasOutdated and "OUTDATED" or (hasUnknown and "PARTIAL CHECK" or "UP TO DATE")
+    versionState.status = versionStatus
 end
 refreshOverallVersionStatus()
 if not remoteVersion then
@@ -878,6 +880,7 @@ if not entry then
             latestBuildId = remoteVersion and tostring(remoteVersion.build) or "Unknown",
             versionStatus = versionStatus,
             componentStatuses = componentStatuses,
+            versionState = versionState,
             })
             libraryMounted = true
         end)
@@ -1119,6 +1122,7 @@ if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
             latestBuildId = remoteVersion and tostring(remoteVersion.build) or "Unknown",
             versionStatus = versionStatus,
             componentStatuses = componentStatuses,
+            versionState = versionState,
         })
     end)
     if not okRun then
