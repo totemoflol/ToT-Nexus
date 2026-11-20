@@ -1,11 +1,11 @@
 {
-  "version": "3.13",
-  "build": "2026.11.20.5",
+  "version": "3.14",
+  "build": "2026.11.20.6",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.5",
-    "GeneralScripts": "2026.11.20.5",
-    "AdvancedTeamESP": "2026.11.20.5"
+    "Loader": "2026.11.20.6",
+    "GeneralScripts": "2026.11.20.6",
+    "AdvancedTeamESP": "2026.11.20.6"
   },
-  "notes": "Restores throttled enemy visibility raycasts and fixes dedicated touch/mouse drag handles for both library and ESP windows."
+  "notes": "Fixes drag input capture using global touch/mouse events; restores throttled line-of-sight raycasting with unobstructed rays treated as visible."
 }
