@@ -164,13 +164,7 @@ local function updateVisibility(player)
     if not record or not record.character or not record.character.Parent then return end
     local camera = workspace.CurrentCamera
     if not camera then return end
-    if isAlly(player) then
-        for _, dot in ipairs(record.dots) do
-            pcall(function() dot.Color = COLORS.Ally end)
-        end
-        return
-    end
-
+    local ally = isAlly(player)
     local origin = camera.CFrame.Position
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
@@ -209,9 +203,9 @@ local function updateVisibility(player)
         local projected, onScreen = camera:WorldToViewportPoint(point)
         if onScreen and projected.Z > 0 and projected.X >= 0 and projected.Y >= 0
             and projected.X <= viewport.X and projected.Y <= viewport.Y then
-            local visible = pointVisible(origin, point, record.character, params, table.clone(excludedBase))
+            local visible = ally or pointVisible(origin, point, record.character, params, table.clone(excludedBase))
             dot.Position = Vector2.new(projected.X, projected.Y)
-            dot.Color = visible and COLORS.Visible or COLORS.Hidden
+            dot.Color = ally and COLORS.Ally or (visible and COLORS.Visible or COLORS.Hidden)
             dot.Visible = true
         else
             dot.Visible = false
