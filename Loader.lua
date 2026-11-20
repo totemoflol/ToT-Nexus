@@ -720,10 +720,66 @@ if not entry then
         })
     end)
     task.spawn(function()
-        task.wait(3)
+        task.wait(1)
         if splash then splash.finish() end
     end)
     startImportTool()
+
+    -- Unsupported current experience still opens the full game catalog.
+    local catalog = {}
+    for placeId, gameEntry in pairs(Games) do
+        local gameIcon
+        pcall(function() gameIcon = fetchGameIcon(placeId) end)
+        catalog[#catalog + 1] = {
+            Id = tostring(placeId), PlaceId = placeId, Name = gameEntry.Name,
+            Icon = gameIcon, Features = gameEntry.Features or {},
+            GatedFeatures = gameEntry.GatedFeatures or {}, Supported = true,
+        }
+    end
+    table.sort(catalog, function(a, b) return a.Name < b.Name end)
+    local current = {
+        Id = "current-" .. tostring(game.PlaceId), PlaceId = game.PlaceId,
+        Name = gameName, Icon = iconUrl, Features = {}, Supported = false,
+        IsCurrent = true,
+    }
+    table.insert(catalog, 1, current)
+
+    local okLibrary, librarySource = pcall(function()
+        return game:HttpGet(BASE .. "/tools/GeneralScripts.lua")
+    end)
+    if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
+        local okRun, runErr = pcall(function()
+            loadstring(librarySource)({
+                games = catalog,
+                currentGameId = current.Id,
+                onExecute = function(selected)
+                    local targetEntry
+                    for placeId, candidate in pairs(Games) do
+                        if tostring(placeId) == selected.Id then targetEntry = candidate break end
+                    end
+                    if not targetEntry then return end
+                    local uniqid = "game-" .. tostring(selected.Id)
+                    local isCurrent = getgenv().ToTNexusStartScript(uniqid, function() end)
+                    local ok, source = pcall(function() return game:HttpGet(targetEntry.Script) end)
+                    if not ok or type(source) ~= "string" then
+                        getgenv().ToTNexusStopScript(uniqid)
+                        warn("[ToT Nexus] Failed to fetch " .. selected.Name)
+                        return
+                    end
+                    if not isCurrent() then return end
+                    local fn, compileErr = loadstring(source)
+                    if not fn then
+                        getgenv().ToTNexusStopScript(uniqid)
+                        warn("[ToT Nexus] Compile error: " .. tostring(compileErr))
+                        return
+                    end
+                    local ran, err = pcall(fn)
+                    if not ran then warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(err)) end
+                end,
+            })
+        end)
+        if not okRun then warn("[ToT Nexus] Game library UI failed: " .. tostring(runErr)) end
+    end
     return
 end
 
