@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.20.10
+-- NEXUS_BUILD_ID: 2026.11.20.11
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -906,6 +906,7 @@ return function(config)
         layout.Parent = log
 
         local entries = {
+            {date = "20 NOV 2026 · ESP ACCURACY", title = "Faster limb checks with multi-point visibility", body = "Visibility now refreshes every 0.10 seconds. Each limb checks its center first, then up to four points across the camera-facing surface if the center is blocked. Transparent and glass blockers are skipped more reliably.", affected = "Affects: Advanced Team ESP; reduces false-red limbs when part of an enemy is exposed, with more frequent updates."},
             {date = "20 NOV 2026 · CUSTOM ESP RENDERER", title = "Instant native limb visibility colors", body = "Restored native Roblox Highlights, with one Highlight per body part. Enemy limb colors switch directly between green (visible) and red (blocked), with no tween, using frequent bounded raycasts. Teammates remain blue.", affected = "Affects: Advanced Team ESP; uses native Roblox Highlight instances; visibility updates are sampled at short intervals."},
             {date = "20 NOV 2026 · ESP VISIBILITY", title = "Team refresh and partial visibility", body = "Teams refresh every 7 seconds and on team property changes. Enemy body parts blend individually between green (visible) and red (hidden).", affected = "Affects: Advanced Team ESP; per-limb visibility approximation, capped highlights and raycasts."},
             {date = "20 NOV 2026 · ESP + UI HOTFIX", title = "Restored visibility checks and fixed dragging", body = "Enemy visibility now uses bounded raycasts that can pass through a few transparent or glass blockers. Both windows now capture mouse and touch movement globally.", affected = "Affects: Advanced Team ESP line-of-sight colors, mobile/desktop dragging, and performance safeguards."},
