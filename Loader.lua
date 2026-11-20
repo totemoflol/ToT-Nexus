@@ -102,32 +102,9 @@ end
 
 -- Game photo via the Roblox thumbnails API -> CDN url (nil on failure)
 local function fetchGameIcon(placeId)
-    -- Prefer the official Roblox experience icon endpoint (universe ID).
-    local registered = Games[placeId]
-    local endpoints = {}
-    if registered and registered.UniverseId then
-        table.insert(endpoints,
-            "https://thumbnails.roblox.com/v1/games/icons?universeIds="
-            .. registered.UniverseId .. "&size=512x512&format=Png&isCircular=false")
-    end
-    -- Compatibility fallback for older place-icon endpoint.
-    table.insert(endpoints,
-        "https://thumbnails.roblox.com/v1/places/gameicons?placeIds="
-        .. placeId .. "&size=512x512&format=Png")
-
-    for _, endpoint in ipairs(endpoints) do
-        local ok, body = pcall(function() return game:HttpGet(endpoint) end)
-        if ok and type(body) == "string" then
-            local okD, data = pcall(function() return HttpService:JSONDecode(body) end)
-            if okD and type(data) == "table" and type(data.data) == "table" then
-                local item = data.data[1]
-                if item and item.state == "Completed" and item.imageUrl then
-                    return item.imageUrl
-                end
-            end
-        end
-    end
-    return nil
+    -- Roblox resolves this URI directly into the experience's official game icon.
+    -- It avoids the extra HttpGet/JSON step that was leaving ImageLabels empty.
+    return "rbxthumb://type=GameIcon&id=" .. tostring(placeId) .. "&w=512&h=512"
 end
 
 -- ==================================================================================
