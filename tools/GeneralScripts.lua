@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.20.4
+-- NEXUS_BUILD_ID: 2026.11.20.5
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -254,48 +254,66 @@ return function(config)
     close.MouseLeave:Connect(function() tween(close, 0.16, {BackgroundColor3 = Color3.fromRGB(48, 28, 43)}) end)
     close.MouseButton1Click:Connect(showCloseConfirmation)
 
-    -- Touch + mouse dragging for the library window.
+    -- Dedicated header hit target: parent Frame.InputBegan is unreliable when
+    -- the touch lands on a child label. This transparent button owns the drag gesture.
+    local libraryDragHandle = Instance.new("TextButton")
+    libraryDragHandle.Name = "LibraryDragHandle"
+    libraryDragHandle.Position = UDim2.fromOffset(0, 0)
+    libraryDragHandle.Size = UDim2.new(1, -92, 0, 66)
+    libraryDragHandle.BackgroundTransparency = 1
+    libraryDragHandle.Text = ""
+    libraryDragHandle.AutoButtonColor = false
+    libraryDragHandle.Active = true
+    libraryDragHandle.ZIndex = 5
+    libraryDragHandle.Parent = card
+
+    -- Keep header controls and the version badge above the transparent drag surface.
+    for _, headerObject in ipairs(card:GetChildren()) do
+        if headerObject ~= libraryDragHandle and (
+            headerObject:IsA("TextLabel") or headerObject == logo or headerObject == minimize or headerObject == close
+            or headerObject == versionBadge
+        ) then
+            headerObject.ZIndex = 6
+        end
+    end
+
+    -- Reliable mouse + touch dragging. The drag handle is a real active button,
+    -- so touches over the logo/title area are captured instead of being lost to the card.
     do
         local UserInputService = game:GetService("UserInputService")
         local dragging = false
         local dragInput
         local dragStart
         local startPos
-
-        card.InputBegan:Connect(function(input)
+        local function beginDrag(input)
             if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-            local localX = input.Position.X - card.AbsolutePosition.X
-            local localY = input.Position.Y - card.AbsolutePosition.Y
-            if localY > 0 and localY <= 64 and localX < (width - 100) then
-                dragging = true
-                dragInput = input
-                dragStart = input.Position
-                startPos = card.Position
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement and dragStart and startPos then
-                local delta = input.Position - dragStart
-                card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-
-        UserInputService.TouchMoved:Connect(function(input)
-            if dragging and dragInput and input.TouchId == dragInput.TouchId and dragStart and startPos then
-                local delta = input.Position - dragStart
-                card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input == dragInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragInput = input
+            dragStart = input.Position
+            startPos = card.Position
+        end
+        local function finishDrag(input)
+            if input == dragInput or input.UserInputType == Enum.UserInputType.MouseButton1 then
                 dragging = false
                 dragInput = nil
+                dragStart = nil
+                startPos = nil
+            end
+        end
+        libraryDragHandle.InputBegan:Connect(beginDrag)
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging or not dragStart or not startPos then return end
+            local isMouseMove = input.UserInputType == Enum.UserInputType.MouseMovement
+            local isTouchMove = input.UserInputType == Enum.UserInputType.Touch and dragInput
+                and input.TouchId == dragInput.TouchId
+            if isMouseMove or isTouchMove then
+                local delta = input.Position - dragStart
+                card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
+        UserInputService.InputEnded:Connect(finishDrag)
     end
-
 
     local divider = Instance.new("Frame")
     divider.Position = UDim2.fromOffset(20, 65)
