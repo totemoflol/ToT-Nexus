@@ -1,11 +1,11 @@
 {
-  "version": "3.16",
-  "build": "2026.11.20.9",
+  "version": "3.17",
+  "build": "2026.11.20.10",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.9",
-    "GeneralScripts": "2026.11.20.9",
-    "AdvancedTeamESP": "2026.11.20.9"
+    "Loader": "2026.11.20.10",
+    "GeneralScripts": "2026.11.20.10",
+    "AdvancedTeamESP": "2026.11.20.10"
   },
-  "notes": "Custom executor Drawing renderer with sampled camera-facing body surfaces, independent visible/occluded colors, capped targets and raycasts."
+  "notes": "Native per-limb Highlights with immediate red/green enemy visibility changes and blue teammate highlights."
 }
