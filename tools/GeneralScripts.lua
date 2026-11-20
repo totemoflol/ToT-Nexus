@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.20.3
+-- NEXUS_BUILD_ID: 2026.11.20.4
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -848,12 +848,15 @@ return function(config)
         label(content, "LOADER AND REMOTE BUILD COMPARISON", UDim2.fromOffset(18, 40), UDim2.new(1, -36, 0, 14), 8, CYAN, Enum.Font.GothamBold)
 
         local componentStatuses = config.componentStatuses or {}
+        local currentStatus = (config.versionState and config.versionState.status) or config.versionStatus or "UNKNOWN"
+        versionBadge.Text = "v" .. tostring(config.version or "?") .. " · " .. currentStatus
+        versionBadge.TextColor3 = currentStatus == "UP TO DATE" and GREEN or (currentStatus == "OUTDATED" and RED or MUTED)
         local rows = {
             {"LOADER", tostring(componentStatuses.Loader or "UNKNOWN")},
             {"LIBRARY", tostring(componentStatuses.GeneralScripts or "UNKNOWN")},
             {"ESP TOOL", tostring(componentStatuses.AdvancedTeamESP or "NOT CHECKED")},
             {"LATEST RELEASE", tostring(config.latestVersion or "Unknown") .. " · " .. tostring(config.latestBuildId or "Unknown")},
-            {"OVERALL STATUS", tostring(config.versionStatus or "UNKNOWN")},
+            {"OVERALL STATUS", tostring(currentStatus)},
         }
         for i, row in ipairs(rows) do
             local y = 76 + (i - 1) * 48
