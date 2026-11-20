@@ -363,13 +363,20 @@ reopenStroke.Color = COLORS.Accent
 reopenStroke.Parent = reopenButton
 
 local function setEnabled(value)
+    if value and not drawingAvailable then
+        enabled = false
+        toggle.Text = "ENABLE ESP"
+        toggle.BackgroundColor3 = COLORS.Accent
+        status.Text = "DRAWING API NOT AVAILABLE"
+        status.TextColor3 = COLORS.Hidden
+        return
+    end
     enabled = value
     if enabled then
         toggle.Text = "DISABLE ESP"
         toggle.BackgroundColor3 = Color3.fromRGB(65, 45, 105)
-        status.Text = drawingAvailable and "CUSTOM SURFACE SAMPLING ACTIVE" or "DRAWING API NOT AVAILABLE"
-        status.TextColor3 = drawingAvailable and COLORS.Cyan or COLORS.Hidden
-        if not drawingAvailable then return end
+        status.Text = "CUSTOM SURFACE SAMPLING ACTIVE"
+        status.TextColor3 = COLORS.Cyan
         refreshAll()
     else
         toggle.Text = "ENABLE ESP"
