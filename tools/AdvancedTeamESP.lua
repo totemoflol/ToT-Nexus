@@ -189,6 +189,7 @@ stroke.Parent = panel
 
 local top = Instance.new("Frame")
 top.Size = UDim2.new(1, 0, 0, 48)
+top.Active = true
 top.BackgroundColor3 = COLORS.Panel
 top.BorderSizePixel = 0
 top.Parent = panel
@@ -288,8 +289,14 @@ do
     end)
 
     connect(UserInputService.InputChanged, function(input)
-        if not dragging or not dragStart or not startPos then return end
-        if input == dragInput or input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement and dragStart and startPos then
+            local delta = input.Position - dragStart
+            panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    connect(UserInputService.TouchMoved, function(input)
+        if dragging and dragInput and input.TouchId == dragInput.TouchId and dragStart and startPos then
             local delta = input.Position - dragStart
             panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
