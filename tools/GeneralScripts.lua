@@ -288,6 +288,35 @@ return function(config)
         ESP = "Highlight developer test targets",
     }
 
+    local activeEsp = {enabled = false, highlights = {}, connections = {}}
+    local function stopEsp()
+        for _, connection in ipairs(activeEsp.connections) do
+            pcall(function() connection:Disconnect() end)
+        end
+        table.clear(activeEsp.connections)
+        for _, highlight in pairs(activeEsp.highlights) do
+            if highlight and highlight.Parent then highlight:Destroy() end
+        end
+        table.clear(activeEsp.highlights)
+        activeEsp.enabled = false
+    end
+
+    local function addEspTarget(target)
+        if not activeEsp.enabled or not target then return end
+        if not (target:IsA("Model") or target:IsA("BasePart")) then return end
+        if activeEsp.highlights[target] and activeEsp.highlights[target].Parent then return end
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ToTNexusTestHighlight"
+        highlight.Adornee = target
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.FillColor = ACCENT
+        highlight.OutlineColor = CYAN
+        highlight.FillTransparency = 0.78
+        highlight.OutlineTransparency = 0.05
+        highlight.Parent = target
+        activeEsp.highlights[target] = highlight
+    end
+
     local function renderDetails(gameInfo)
         selected = gameInfo
         for id, rowData in pairs(rows) do
@@ -297,164 +326,259 @@ return function(config)
             rowData.stroke.Transparency = active and 0.04 or 0.48
         end
 
-        for _, child in ipairs(detail:GetChildren()) do
-            if child ~= detailStroke then child:Destroy() end
+        if not gameInfo.IsGeneralTools and activeEsp.enabled then
+            stopEsp()
         end
 
-        local content = Instance.new("CanvasGroup")
-        content.Name = "Content"
-        content.Size = UDim2.fromScale(1, 1)
-        content.BackgroundTransparency = 1
-        content.GroupTransparency = 1
-        content.Position = UDim2.fromOffset(0, 9)
-        content.Parent = detail
-        tween(content, 0.24, {GroupTransparency = 0, Position = UDim2.fromOffset(0, 0)})
+        local function newContent()
+            for _, child in ipairs(detail:GetChildren()) do
+                if child ~= detailStroke then child:Destroy() end
+            end
+            local content = Instance.new("CanvasGroup")
+            content.Name = "Content"
+            content.Size = UDim2.fromScale(1, 1)
+            content.BackgroundTransparency = 1
+            content.GroupTransparency = 1
+            content.Position = UDim2.fromOffset(0, 8)
+            content.Parent = detail
+            tween(content, 0.23, {GroupTransparency = 0, Position = UDim2.fromOffset(0, 0)})
+            return content
+        end
 
-        local iconSize = compact and (narrow and 58 or 70) or 94
-        local icon = Instance.new("ImageLabel")
-        icon.AnchorPoint = Vector2.new(0.5, 0)
-        icon.Position = UDim2.new(0.5, 0, 0, compact and 14 or 20)
-        icon.Size = UDim2.fromOffset(iconSize, iconSize)
-        icon.BackgroundColor3 = PANEL2
-        icon.BorderSizePixel = 0
-        icon.Image = gameInfo.Icon or ""
-        icon.ScaleType = Enum.ScaleType.Crop
-        icon.Parent = content
-        corner(icon, 16)
-        local iconBorder = Instance.new("UIStroke", icon)
-        iconBorder.Color = gameInfo.IsGeneralTools and CYAN or ACCENT
-        iconBorder.Thickness = 1.4
-        iconBorder.Transparency = 0.22
+        local descriptions = {
+            Sell = "Quick potato selling",
+            Auto = "Automated farming",
+            Rebirths = "Rebirth progression",
+            Boosts = "Boost management",
+            Misc = "Extra utilities",
+            Shop = "In-game shop tools",
+            Macro = "Automated action chains",
+            Premium = "Premium features",
+            Webhook = "Webhook alerts",
+            ESP = "Highlight developer test targets",
+        }
+
+        local function addFeatureList(parentObject, features, gated)
+            local list = Instance.new("ScrollingFrame")
+            list.Position = UDim2.fromOffset(13, 0)
+            list.Size = UDim2.new(1, -26, 1, -2)
+            list.BackgroundTransparency = 1
+            list.BorderSizePixel = 0
+            list.ScrollBarThickness = 2
+            list.ScrollBarImageColor3 = ACCENT
+            list.CanvasSize = UDim2.new()
+            list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            list.Parent = parentObject
+            local layout = Instance.new("UIListLayout")
+            layout.Padding = UDim.new(0, 6)
+            layout.Parent = list
+
+            for _, feature in ipairs(features or {}) do
+                local item = Instance.new("Frame")
+                item.Size = UDim2.new(1, -3, 0, compact and 27 or 30)
+                item.BackgroundColor3 = PANEL2
+                item.BorderSizePixel = 0
+                item.Parent = list
+                corner(item, 7)
+                local dot = Instance.new("Frame")
+                dot.AnchorPoint = Vector2.new(0, 0.5)
+                dot.Position = UDim2.new(0, 9, 0.5, 0)
+                dot.Size = UDim2.fromOffset(5, 5)
+                dot.BackgroundColor3 = gated and MUTED or ACCENT
+                dot.BorderSizePixel = 0
+                dot.Parent = item
+                corner(dot, 4)
+                label(item, descriptions[feature] or feature, UDim2.fromOffset(22, 0), UDim2.new(1, -58, 1, 0), compact and 8 or 10, gated and MUTED or TEXT, Enum.Font.GothamMedium)
+                label(item, gated and "LOCKED" or "READY", UDim2.new(1, -48, 0, 0), UDim2.fromOffset(41, item.Size.Y.Offset), 7, gated and MUTED or GREEN, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+            end
+            return list
+        end
+
+        local function showToolList()
+            local content = newContent()
+            label(content, "GENERAL TOOLS", UDim2.fromOffset(17, 17), UDim2.new(1, -34, 0, 22), 16, TEXT, Enum.Font.GothamBold)
+            label(content, "Small utilities that work independently of game modules", UDim2.fromOffset(18, 41), UDim2.new(1, -36, 0, 26), 8, MUTED, Enum.Font.Gotham)
+            local count = label(content, "1 TOOL", UDim2.new(0, 18, 0, 76), UDim2.new(1, -36, 0, 13), 8, CYAN, Enum.Font.GothamBold)
+
+            local toolCard = Instance.new("TextButton")
+            toolCard.Name = "Tool_ESP"
+            toolCard.Position = UDim2.fromOffset(14, 99)
+            toolCard.Size = UDim2.new(1, -28, 0, 76)
+            toolCard.BackgroundColor3 = PANEL2
+            toolCard.BorderSizePixel = 0
+            toolCard.Text = ""
+            toolCard.AutoButtonColor = false
+            toolCard.Parent = content
+            corner(toolCard, 12)
+            local toolStroke = Instance.new("UIStroke", toolCard)
+            toolStroke.Color = Color3.fromRGB(57, 65, 92)
+            toolStroke.Transparency = 0.42
+
+            local toolIcon = Instance.new("Frame")
+            toolIcon.Position = UDim2.fromOffset(11, 11)
+            toolIcon.Size = UDim2.fromOffset(52, 52)
+            toolIcon.BackgroundColor3 = Color3.fromRGB(48, 39, 87)
+            toolIcon.BorderSizePixel = 0
+            toolIcon.Parent = toolCard
+            corner(toolIcon, 12)
+            label(toolIcon, "◎", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 27, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+
+            label(toolCard, "ESP", UDim2.fromOffset(75, 14), UDim2.new(1, -112, 0, 20), 12, TEXT, Enum.Font.GothamBold)
+            label(toolCard, "Highlight test targets", UDim2.fromOffset(75, 37), UDim2.new(1, -112, 0, 17), 8, MUTED, Enum.Font.Gotham)
+            label(toolCard, "›", UDim2.new(1, -33, 0, 0), UDim2.fromOffset(22, 76), 25, CYAN, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+
+            toolCard.MouseEnter:Connect(function()
+                tween(toolCard, 0.15, {BackgroundColor3 = PANEL3})
+                tween(toolStroke, 0.15, {Transparency = 0.05, Color = ACCENT})
+                tween(toolIcon, 0.15, {BackgroundColor3 = ACCENT_DARK})
+            end)
+            toolCard.MouseLeave:Connect(function()
+                tween(toolCard, 0.15, {BackgroundColor3 = PANEL2})
+                tween(toolStroke, 0.15, {Transparency = 0.42, Color = Color3.fromRGB(57, 65, 92)})
+                tween(toolIcon, 0.15, {BackgroundColor3 = Color3.fromRGB(48, 39, 87)})
+            end)
+            toolCard.MouseButton1Click:Connect(function()
+                local detailContent = newContent()
+                local back = makeButton(detailContent, "‹", UDim2.new(1, -49, 0, 12), UDim2.fromOffset(34, 30), PANEL3)
+                back.TextSize = 25
+                back.TextColor3 = CYAN
+                back.MouseEnter:Connect(function() tween(back, 0.13, {BackgroundColor3 = ACCENT_DARK}) end)
+                back.MouseLeave:Connect(function() tween(back, 0.13, {BackgroundColor3 = PANEL3}) end)
+                back.MouseButton1Click:Connect(showToolList)
+
+                local iconBox = Instance.new("Frame")
+                iconBox.AnchorPoint = Vector2.new(0.5, 0)
+                iconBox.Position = UDim2.new(0.5, 0, 0, compact and 16 or 21)
+                iconBox.Size = UDim2.fromOffset(compact and 64 or 76, compact and 64 or 76)
+                iconBox.BackgroundColor3 = Color3.fromRGB(48, 39, 87)
+                iconBox.BorderSizePixel = 0
+                iconBox.Parent = detailContent
+                corner(iconBox, 17)
+                local iconStroke = Instance.new("UIStroke", iconBox)
+                iconStroke.Color = CYAN
+                iconStroke.Transparency = 0.35
+                label(iconBox, "◎", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 36, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+
+                local titleY = (compact and 16 or 21) + (compact and 64 or 76) + 8
+                label(detailContent, "ESP", UDim2.new(0, 12, 0, titleY), UDim2.new(1, -24, 0, 24), 17, TEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+                label(detailContent, "DEVELOPER VISUALIZATION TOOL", UDim2.new(0, 12, 0, titleY + 24), UDim2.new(1, -24, 0, 14), 8, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+                label(detailContent, "FEATURES", UDim2.fromOffset(16, titleY + 51), UDim2.new(1, -32, 0, 13), 8, MUTED, Enum.Font.GothamBold)
+
+                local featureWrap = Instance.new("Frame")
+                featureWrap.Position = UDim2.fromOffset(13, titleY + 69)
+                featureWrap.Size = UDim2.new(1, -26, 0, math.max(48, height - (top + bottom) - titleY - 69 - 104))
+                featureWrap.BackgroundTransparency = 1
+                featureWrap.Parent = detailContent
+                addFeatureList(featureWrap, {"Highlight test targets", "Live target updates", "Toggleable outlines"}, false)
+
+                statusLabel = label(detailContent, activeEsp.enabled and "ESP is active" or "Ready to enable", UDim2.new(0, 14, 1, -62), UDim2.new(1, -28, 0, 14), 8, activeEsp.enabled and GREEN or MUTED, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+                executeButton = makeButton(detailContent, activeEsp.enabled and "■   DISABLE ESP" or "▶   EXECUTE", UDim2.new(0, 13, 1, -42), UDim2.new(1, -26, 0, 36), ACCENT_DARK)
+                executeButton.TextSize = 10
+                local actionStroke = Instance.new("UIStroke", executeButton)
+                actionStroke.Color = CYAN
+                actionStroke.Transparency = 0.58
+                executeButton.MouseEnter:Connect(function() tween(executeButton, 0.13, {BackgroundColor3 = ACCENT}) end)
+                executeButton.MouseLeave:Connect(function() tween(executeButton, 0.13, {BackgroundColor3 = ACCENT_DARK}) end)
+
+                executeButton.MouseButton1Click:Connect(function()
+                    if activeEsp.enabled then
+                        stopEsp()
+                        executeButton.Text = "▶   EXECUTE"
+                        statusLabel.Text = "ESP disabled"
+                        statusLabel.TextColor3 = MUTED
+                        return
+                    end
+
+                    local folder = workspace:FindFirstChild("ToTNexusTestTargets")
+                    if not folder then
+                        folder = Instance.new("Folder")
+                        folder.Name = "ToTNexusTestTargets"
+                        folder.Parent = workspace
+                    end
+
+                    activeEsp.enabled = true
+                    for _, target in ipairs(folder:GetChildren()) do addEspTarget(target) end
+                    table.insert(activeEsp.connections, folder.ChildAdded:Connect(addEspTarget))
+                    table.insert(activeEsp.connections, folder.ChildRemoved:Connect(function(target)
+                        local highlight = activeEsp.highlights[target]
+                        if highlight then
+                            highlight:Destroy()
+                            activeEsp.highlights[target] = nil
+                        end
+                    end))
+
+                    executeButton.Text = "■   DISABLE ESP"
+                    statusLabel.TextColor3 = GREEN
+                    local countTargets = 0
+                    for _ in pairs(activeEsp.highlights) do countTargets = countTargets + 1 end
+                    statusLabel.Text = countTargets > 0 and ("ESP active · " .. countTargets .. " test target(s)") or "ESP active · waiting for test targets"
+                end)
+            end)
+        end
 
         if gameInfo.IsGeneralTools then
-            local glyph = label(icon, "✦", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 34, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+            showToolList()
+            return
         end
 
+        local content = newContent()
+        local iconSize = compact and (narrow and 58 or 70) or 94
+        local image = Instance.new("ImageLabel")
+        image.AnchorPoint = Vector2.new(0.5, 0)
+        image.Position = UDim2.new(0.5, 0, 0, compact and 14 or 20)
+        image.Size = UDim2.fromOffset(iconSize, iconSize)
+        image.BackgroundColor3 = PANEL2
+        image.BorderSizePixel = 0
+        image.Image = gameInfo.Icon or ""
+        image.ScaleType = Enum.ScaleType.Crop
+        image.Parent = content
+        corner(image, 16)
+        local imageStroke = Instance.new("UIStroke", image)
+        imageStroke.Color = ACCENT
+        imageStroke.Transparency = 0.22
+
         local nameY = (compact and 14 or 20) + iconSize + (compact and 9 or 12)
-        local title = label(content, gameInfo.Name, UDim2.new(0, 12, 0, nameY), UDim2.new(1, -24, 0, 26), compact and 13 or 17, TEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-        local subtitleText = gameInfo.IsCurrent and "YOU ARE PLAYING THIS EXPERIENCE" or (gameInfo.IsGeneralTools and "UNIVERSAL DEVELOPER UTILITIES" or (gameInfo.Supported and "GAME MODULE" or "NO MODULE AVAILABLE"))
+        label(content, gameInfo.Name, UDim2.new(0, 12, 0, nameY), UDim2.new(1, -24, 0, 26), compact and 13 or 17, TEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+        local subtitleText = gameInfo.IsCurrent and "YOU ARE PLAYING THIS EXPERIENCE" or (gameInfo.Supported and "GAME MODULE" or "NO MODULE AVAILABLE")
         label(content, subtitleText, UDim2.new(0, 10, 0, nameY + 26), UDim2.new(1, -20, 0, 14), compact and 7 or 8, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
 
         local featureY = nameY + 54
         label(content, "FEATURES", UDim2.fromOffset(15, featureY), UDim2.new(1, -30, 0, 14), 8, MUTED, Enum.Font.GothamBold)
-        local featureList = Instance.new("ScrollingFrame")
-        featureList.Position = UDim2.fromOffset(13, featureY + 19)
-        local featureHeight = math.max(34, height - (top + bottom) - featureY - 19 - 72)
-        featureList.Size = UDim2.new(1, -26, 0, featureHeight)
-        featureList.BackgroundTransparency = 1
-        featureList.BorderSizePixel = 0
-        featureList.ScrollBarThickness = 2
-        featureList.ScrollBarImageColor3 = ACCENT
-        featureList.CanvasSize = UDim2.new()
-        featureList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        featureList.Parent = content
-        local featureLayout = Instance.new("UIListLayout")
-        featureLayout.Padding = UDim.new(0, 6)
-        featureLayout.Parent = featureList
-
-        local count = 0
-        local function addFeature(feature, gated)
-            count = count + 1
-            local item = Instance.new("Frame")
-            item.Size = UDim2.new(1, -3, 0, compact and 27 or 30)
-            item.BackgroundColor3 = PANEL2
-            item.BorderSizePixel = 0
-            item.Parent = featureList
-            corner(item, 7)
-            local dot = Instance.new("Frame")
-            dot.AnchorPoint = Vector2.new(0, 0.5)
-            dot.Position = UDim2.new(0, 9, 0.5, 0)
-            dot.Size = UDim2.fromOffset(5, 5)
-            dot.BackgroundColor3 = gated and MUTED or (gameInfo.IsGeneralTools and CYAN or ACCENT)
-            dot.BorderSizePixel = 0
-            dot.Parent = item
-            corner(dot, 4)
-            label(item, descriptions[feature] or feature, UDim2.fromOffset(22, 0), UDim2.new(1, -56, 1, 0), compact and 8 or 10, gated and MUTED or TEXT, Enum.Font.GothamMedium)
-            local tag = label(item, gated and "LOCKED" or "READY", UDim2.new(1, -48, 0, 0), UDim2.fromOffset(41, 30), 7, gated and MUTED or GREEN, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
-        end
-        for _, feature in ipairs(gameInfo.Features or {}) do addFeature(feature, false) end
-        for _, feature in ipairs(gameInfo.GatedFeatures or {}) do addFeature(feature, true) end
-        if count == 0 then
-            local message = gameInfo.Supported and "No features listed yet" or "This experience has no registered module."
-            label(featureList, message, UDim2.fromOffset(3, 2), UDim2.new(1, -6, 0, 34), 9, MUTED)
+        local featureWrap = Instance.new("Frame")
+        featureWrap.Position = UDim2.fromOffset(13, featureY + 19)
+        featureWrap.Size = UDim2.new(1, -26, 0, math.max(50, height - (top + bottom) - featureY - 19 - 72))
+        featureWrap.BackgroundTransparency = 1
+        featureWrap.Parent = content
+        local allFeatures = {}
+        for _, feature in ipairs(gameInfo.Features or {}) do table.insert(allFeatures, feature) end
+        for _, feature in ipairs(gameInfo.GatedFeatures or {}) do table.insert(allFeatures, feature) end
+        if #allFeatures > 0 then
+            addFeatureList(featureWrap, allFeatures, false)
+        else
+            label(featureWrap, gameInfo.Supported and "No feature list yet" or "No script is registered for this experience.", UDim2.fromOffset(3, 2), UDim2.new(1, -6, 0, 32), 9, MUTED)
         end
 
-        statusLabel = label(content, "", UDim2.new(0, 14, 1, -62), UDim2.new(1, -28, 0, 15), 8, MUTED, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
-
-        executeButton = makeButton(content,
-            gameInfo.IsGeneralTools and "✦   ENABLE ESP" or (gameInfo.Supported and "▶   EXECUTE MODULE" or "MODULE UNAVAILABLE"),
-            UDim2.new(0, 13, 1, -42), UDim2.new(1, -26, 0, 36),
-            gameInfo.Supported and ACCENT_DARK or PANEL3)
-        executeButton.TextSize = compact and 9 or 10
-        local buttonStroke = Instance.new("UIStroke", executeButton)
-        buttonStroke.Color = gameInfo.IsGeneralTools and CYAN or ACCENT
-        buttonStroke.Transparency = 0.55
-        if not gameInfo.Supported then
-            executeButton.TextColor3 = MUTED
-        end
+        statusLabel = label(content, "", UDim2.new(0, 14, 1, -62), UDim2.new(1, -28, 0, 14), 8, MUTED, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+        executeButton = makeButton(content, gameInfo.Supported and "▶   EXECUTE MODULE" or "MODULE UNAVAILABLE",
+            UDim2.new(0, 13, 1, -42), UDim2.new(1, -26, 0, 36), gameInfo.Supported and ACCENT_DARK or PANEL3)
+        executeButton.TextSize = 10
+        executeButton.Active = gameInfo.Supported
+        executeButton.AutoButtonColor = gameInfo.Supported
         executeButton.MouseEnter:Connect(function()
-            if gameInfo.Supported then tween(executeButton, 0.14, {BackgroundColor3 = ACCENT}) end
+            if gameInfo.Supported then tween(executeButton, 0.13, {BackgroundColor3 = ACCENT}) end
         end)
         executeButton.MouseLeave:Connect(function()
-            if gameInfo.Supported then tween(executeButton, 0.14, {BackgroundColor3 = gameInfo.IsGeneralTools and ACCENT_DARK or ACCENT_DARK}) end
+            if gameInfo.Supported then tween(executeButton, 0.13, {BackgroundColor3 = ACCENT_DARK}) end
         end)
-
-        local espEnabled = false
-        local espHighlights = {}
-        local function clearEsp()
-            for _, highlight in ipairs(espHighlights) do
-                if highlight and highlight.Parent then highlight:Destroy() end
-            end
-            table.clear(espHighlights)
-        end
+        if not gameInfo.Supported then executeButton.TextColor3 = MUTED end
 
         executeButton.MouseButton1Click:Connect(function()
             if not selected or not selected.Supported then return end
-            tween(executeButton, 0.09, {Size = UDim2.new(1, -32, 0, 33)}, Enum.EasingStyle.Quad)
-            task.delay(0.09, function()
-                if executeButton and executeButton.Parent then
-                    tween(executeButton, 0.13, {Size = UDim2.new(1, -26, 0, 36)}, Enum.EasingStyle.Back)
-                end
-            end)
-
-            if selected.IsGeneralTools then
-                if espEnabled then
-                    clearEsp()
-                    espEnabled = false
-                    executeButton.Text = "✦   ENABLE ESP"
-                    statusLabel.Text = "ESP disabled"
-                    return
-                end
-                local folder = workspace:FindFirstChild("ToTNexusTestTargets")
-                if not folder then
-                    statusLabel.Text = "Add test models to workspace.ToTNexusTestTargets"
-                    return
-                end
-                for _, target in ipairs(folder:GetChildren()) do
-                    if target:IsA("Model") or target:IsA("BasePart") then
-                        local highlight = Instance.new("Highlight")
-                        highlight.Name = "ToTNexusTestHighlight"
-                        highlight.Adornee = target
-                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        highlight.FillColor = ACCENT
-                        highlight.OutlineColor = CYAN
-                        highlight.FillTransparency = 0.78
-                        highlight.OutlineTransparency = 0.05
-                        highlight.Parent = target
-                        table.insert(espHighlights, highlight)
-                    end
-                end
-                espEnabled = true
-                executeButton.Text = "■   DISABLE ESP"
-                statusLabel.Text = "Highlighting " .. tostring(#espHighlights) .. " test target(s)"
-                return
-            end
-
             executeButton.Active = false
             executeButton.Text = "LOADING MODULE..."
             statusLabel.Text = "Fetching selected game module..."
             if config.onExecute then
-                local target = selected
+                local target = gameInfo
                 task.spawn(function()
                     local ok, err = pcall(config.onExecute, target)
                     if executeButton and executeButton.Parent then
