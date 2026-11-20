@@ -339,7 +339,8 @@ return function(config)
         label(content, "FEATURES", UDim2.fromOffset(15, featureY), UDim2.new(1, -30, 0, 14), 8, MUTED, Enum.Font.GothamBold)
         local featureList = Instance.new("ScrollingFrame")
         featureList.Position = UDim2.fromOffset(13, featureY + 19)
-        featureList.Size = UDim2.new(1, -26, 1, -(featureY + 19 + 72))
+        local featureHeight = math.max(34, height - (top + bottom) - featureY - 19 - 72)
+        featureList.Size = UDim2.new(1, -26, 0, featureHeight)
         featureList.BackgroundTransparency = 1
         featureList.BorderSizePixel = 0
         featureList.ScrollBarThickness = 2
