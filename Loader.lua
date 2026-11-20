@@ -921,6 +921,11 @@ for placeId, gameEntry in pairs(Games) do
     }
 end
 table.sort(catalog, function(a, b) return a.Name < b.Name end)
+table.insert(catalog, {
+    Id = "general-tools", Name = "General Tools", Icon = nil,
+    Features = { "ESP" }, GatedFeatures = {}, Supported = true,
+    IsGeneralTools = true,
+})
 
 local currentGame = nil
 for _, item in ipairs(catalog) do
