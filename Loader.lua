@@ -134,14 +134,23 @@ local function createSplash()
     gui.Parent = parent
 
     local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(400, 480)
-    local W = math.min(400, math.floor(vp.X * 0.92))
-    local H = math.min(480, math.floor(vp.Y * 0.9))
+    local W = math.max(280, math.min(420, math.floor(vp.X * 0.92)))
+    local H = math.max(320, math.min(500, math.floor(vp.Y * 0.9)))
     local compact = H < 380 -- small screens: skip the game showcase panel
+
+    local backdrop = Instance.new("Frame")
+    backdrop.Name = "Backdrop"
+    backdrop.Size = UDim2.fromScale(1, 1)
+    backdrop.BackgroundColor3 = Color3.fromRGB(3, 4, 10)
+    backdrop.BackgroundTransparency = 1
+    backdrop.BorderSizePixel = 0
+    backdrop.Parent = gui
+    TweenService:Create(backdrop, TweenInfo.new(0.3), { BackgroundTransparency = 0.38 }):Play()
 
     local card = Instance.new("CanvasGroup")
     card.Name = "Card"
     card.AnchorPoint = Vector2.new(0.5, 0.5)
-    card.Position = UDim2.fromScale(0.5, 0.5)
+    card.Position = UDim2.fromScale(0.5, 0.52)
     card.Size = UDim2.fromOffset(W, H)
     card.BackgroundColor3 = CARD
     card.GroupTransparency = 1
@@ -149,15 +158,42 @@ local function createSplash()
     card.ClipsDescendants = true
     card.Parent = gui
 
+    local cardScale = Instance.new("UIScale")
+    cardScale.Scale = 0.94
+    cardScale.Parent = card
+
+    local surfaceGradient = Instance.new("UIGradient")
+    surfaceGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(23, 24, 39)),
+        ColorSequenceKeypoint.new(0.55, CARD),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 15, 26)),
+    })
+    surfaceGradient.Rotation = 35
+    surfaceGradient.Parent = card
+
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 18)
     corner.Parent = card
 
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(46, 48, 74)
-    stroke.Thickness = 1
-    stroke.Transparency = 0.25
+    stroke.Color = Color3.fromRGB(83, 75, 139)
+    stroke.Thickness = 1.25
+    stroke.Transparency = 0.18
     stroke.Parent = card
+
+    local topAccent = Instance.new("Frame")
+    topAccent.Position = UDim2.fromOffset(24, 0)
+    topAccent.Size = UDim2.new(1, -48, 0, 2)
+    topAccent.BackgroundColor3 = ACCENT
+    topAccent.BorderSizePixel = 0
+    topAccent.Parent = card
+    local topGradient = Instance.new("UIGradient")
+    topGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, ACCENT),
+        ColorSequenceKeypoint.new(0.5, ACCENT2),
+        ColorSequenceKeypoint.new(1, ACCENT),
+    })
+    topGradient.Parent = topAccent
 
     -- ==============================================================================
     -- Ambience: drifting starfield + breathing border (cheap: two looped tweens,
@@ -472,6 +508,8 @@ local function createSplash()
     -- Intro --------------------------------------------------------------------------
     TweenService:Create(card, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
         { GroupTransparency = 0 }):Play()
+    TweenService:Create(cardScale, TweenInfo.new(0.52, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        { Scale = 1 }):Play()
 
     -- Controller ---------------------------------------------------------------------
     local api = {}
