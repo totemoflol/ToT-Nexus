@@ -1,6 +1,11 @@
 {
-  "version": "3.11",
-  "build": "2026.11.20.2",
+  "version": "3.12",
+  "build": "2026.11.20.3",
   "channel": "main",
-  "notes": "Adds version mismatch detection and cache-busted script fetching."
+  "components": {
+    "Loader": "2026.11.20.3",
+    "GeneralScripts": "2026.11.20.3",
+    "AdvancedTeamESP": "2026.11.20.3"
+  },
+  "notes": "Adds per-component build verification to detect stale executor downloads and mismatched scripts."
 }
