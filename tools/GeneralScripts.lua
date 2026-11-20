@@ -245,6 +245,49 @@ return function(config)
     close.MouseLeave:Connect(function() tween(close, 0.16, {BackgroundColor3 = Color3.fromRGB(48, 28, 43)}) end)
     close.MouseButton1Click:Connect(showCloseConfirmation)
 
+    -- Touch + mouse dragging for the library window.
+    do
+        local UserInputService = game:GetService("UserInputService")
+        local dragging = false
+        local dragInput
+        local dragStart
+        local startPos
+
+        card.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            local localX = input.Position.X - card.AbsolutePosition.X
+            local localY = input.Position.Y - card.AbsolutePosition.Y
+            if localY > 0 and localY <= 64 and localX < (width - 100) then
+                dragging = true
+                dragInput = input
+                dragStart = input.Position
+                startPos = card.Position
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement and dragStart and startPos then
+                local delta = input.Position - dragStart
+                card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+
+        UserInputService.TouchMoved:Connect(function(input)
+            if dragging and dragInput and input.TouchId == dragInput.TouchId and dragStart and startPos then
+                local delta = input.Position - dragStart
+                card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input == dragInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+                dragInput = nil
+            end
+        end)
+    end
+
+
     local divider = Instance.new("Frame")
     divider.Position = UDim2.fromOffset(20, 65)
     divider.Size = UDim2.new(1, -40, 0, 1)
@@ -264,6 +307,12 @@ return function(config)
     local panelX = margin + leftWidth + gap
 
     label(card, "YOUR EXPERIENCE", UDim2.fromOffset(listX + 2, top), UDim2.fromOffset(listW - 4, 14), 8, MUTED, Enum.Font.GothamBold)
+    local updatesButton = makeButton(card, "✦ UPDATES", UDim2.fromOffset(listX + listW - 78, top - 5), UDim2.fromOffset(78, 23), PANEL2)
+    updatesButton.TextSize = 8
+    local updatesStroke = Instance.new("UIStroke", updatesButton)
+    updatesStroke.Color = CYAN
+    updatesStroke.Transparency = 0.58
+
     local list = Instance.new("ScrollingFrame")
     list.Name = "GameList"
     list.Position = UDim2.fromOffset(listX, top + 21)
@@ -643,7 +692,7 @@ return function(config)
                 featureWrap.Size = UDim2.new(1, -26, 0, math.max(48, height - (top + bottom) - titleY - 69 - 104))
                 featureWrap.BackgroundTransparency = 1
                 featureWrap.Parent = detailContent
-                addFeatureList(featureWrap, {"Blue teammate outlines", "Green visible enemies", "Red occluded enemies", "Live player tracking", "Mobile draggable controls"}, false)
+                addFeatureList(featureWrap, {"Blue teammate outlines", "Red enemy outlines", "Event-driven player tracking", "Mobile touch controls"}, false)
 
                 statusLabel = label(detailContent, activeEsp.enabled and "ESP is active" or "Ready to enable", UDim2.new(0, 14, 1, -62), UDim2.new(1, -28, 0, 14), 8, activeEsp.enabled and GREEN or MUTED, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
                 executeButton = makeButton(detailContent, "▶   OPEN ESP PANEL", UDim2.new(0, 13, 1, -42), UDim2.new(1, -26, 0, 36), ACCENT_DARK)
@@ -774,6 +823,59 @@ return function(config)
             end)
         end
     end
+
+
+    local function showUpdateLog()
+        local content = Instance.new("CanvasGroup")
+        content.Name = "UpdateLog"
+        content.Size = UDim2.fromScale(1, 1)
+        content.BackgroundTransparency = 1
+        content.Parent = detail
+        for _, child in ipairs(detail:GetChildren()) do
+            if child ~= detailStroke and child ~= content then child:Destroy() end
+        end
+
+        label(content, "UPDATE LOG", UDim2.fromOffset(17, 16), UDim2.new(1, -34, 0, 23), 16, TEXT, Enum.Font.GothamBold)
+        label(content, "WHAT CHANGED · WHAT IT AFFECTS", UDim2.fromOffset(18, 40), UDim2.new(1, -36, 0, 14), 8, CYAN, Enum.Font.GothamBold)
+
+        local log = Instance.new("ScrollingFrame")
+        log.Position = UDim2.fromOffset(13, 64)
+        log.Size = UDim2.new(1, -26, 1, -76)
+        log.BackgroundTransparency = 1
+        log.BorderSizePixel = 0
+        log.ScrollBarThickness = 2
+        log.ScrollBarImageColor3 = ACCENT
+        log.CanvasSize = UDim2.new()
+        log.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        log.Parent = content
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 9)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = log
+
+        local entries = {
+            {date = "20 NOV 2026 · ESP STABILITY", title = "Removed expensive ESP work", body = "Removed world raycasts, transparent-object scans and the recurring refresh loop. Player and character events now drive updates.", affected = "Affects: Advanced Team ESP performance. Enemy visibility colors are temporarily replaced with simple team-based colors."},
+            {date = "20 NOV 2026 · MOBILE CONTROLS", title = "Improved touch dragging", body = "Added touch-movement handling for the ESP window and drag support for the main library.", affected = "Affects: Moving both ToT Nexus and the ESP panel on touch devices."},
+            {date = "20 NOV 2026 · LIBRARY", title = "Added this update log", body = "The library now includes a chronological summary of changes and their impact.", affected = "Affects: General Tools library navigation."},
+            {date = "19 NOV 2026 · LIBRARY UI", title = "Window controls and tool artwork", body = "Added custom ESP artwork, a minimize button with a reopen control, and a close confirmation dialog.", affected = "Affects: General Tools presentation and library window controls."},
+        }
+
+        for index, entry in ipairs(entries) do
+            local cardEntry = Instance.new("Frame")
+            cardEntry.Size = UDim2.new(1, -3, 0, compact and 132 or 120)
+            cardEntry.BackgroundColor3 = PANEL2
+            cardEntry.BorderSizePixel = 0
+            cardEntry.LayoutOrder = index
+            cardEntry.Parent = log
+            corner(cardEntry, 10)
+            label(cardEntry, entry.date, UDim2.fromOffset(11, 8), UDim2.new(1, -22, 0, 13), 7, CYAN, Enum.Font.GothamBold)
+            label(cardEntry, entry.title, UDim2.fromOffset(11, 25), UDim2.new(1, -22, 0, 19), 10, TEXT, Enum.Font.GothamBold)
+            label(cardEntry, entry.body, UDim2.fromOffset(11, 47), UDim2.new(1, -22, 0, compact and 39 or 34), 8, MUTED, Enum.Font.Gotham)
+            label(cardEntry, entry.affected, UDim2.fromOffset(11, compact and 91 or 84), UDim2.new(1, -22, 0, compact and 34 or 28), 8, GREEN, Enum.Font.GothamMedium)
+        end
+    end
+
+    updatesButton.MouseButton1Click:Connect(showUpdateLog)
 
     local initial = current or games[1]
     if initial then renderDetails(initial) end
