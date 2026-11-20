@@ -1,11 +1,11 @@
 {
-  "version": "3.14",
-  "build": "2026.11.20.7",
+  "version": "3.15",
+  "build": "2026.11.20.8",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.7",
-    "GeneralScripts": "2026.11.20.7",
-    "AdvancedTeamESP": "2026.11.20.7"
+    "Loader": "2026.11.20.8",
+    "GeneralScripts": "2026.11.20.8",
+    "AdvancedTeamESP": "2026.11.20.8"
   },
-  "notes": "Restores throttled visibility raycasts with bounded transparent/glass pass-through and fixes global touch/mouse drag handling for both windows."
+  "notes": "7-second team reconciliation, event-based team updates, and smooth per-limb visibility colors."
 }
