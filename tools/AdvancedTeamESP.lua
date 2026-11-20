@@ -1,4 +1,5 @@
 -- ToT Nexus | Advanced Team ESP V3
+-- NEXUS_BUILD_ID: 2026.11.20.3
 -- Standalone client-side player ESP UI. Uses a single Highlight per player with low-overhead team coloring.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
