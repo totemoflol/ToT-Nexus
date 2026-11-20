@@ -533,112 +533,24 @@ return function(config)
                 executeButton.MouseLeave:Connect(function() tween(executeButton, 0.13, {BackgroundColor3 = ACCENT_DARK}) end)
 
                 executeButton.MouseButton1Click:Connect(function()
-                    local existingPanel = gui:FindFirstChild("ESPControlPanel")
-                    if existingPanel then
-                        existingPanel.Visible = true
-                        tween(existingPanel, 0.18, {Position = UDim2.fromScale(0.5, 0.5)})
+                    if type(config.onExecuteTool) ~= "function" then
+                        statusLabel.Text = "ESP script launcher is not configured"
+                        statusLabel.TextColor3 = RED
                         return
                     end
-
-                    local panel = Instance.new("Frame")
-                    panel.Name = "ESPControlPanel"
-                    panel.AnchorPoint = Vector2.new(0.5, 0.5)
-                    panel.Position = UDim2.fromScale(0.5, 0.54)
-                    panel.Size = UDim2.fromOffset(math.min(390, width - 32), 250)
-                    panel.BackgroundColor3 = BG
-                    panel.BorderSizePixel = 0
-                    panel.ZIndex = 20
-                    panel.Parent = gui
-                    corner(panel, 16)
-                    local panelStroke = Instance.new("UIStroke", panel)
-                    panelStroke.Color = ACCENT
-                    panelStroke.Transparency = 0.22
-
-                    local panelTitle = label(panel, "ESP CONTROL PANEL", UDim2.fromOffset(18, 17), UDim2.new(1, -70, 0, 23), 15, TEXT, Enum.Font.GothamBold)
-                    panelTitle.ZIndex = 21
-                    local panelSubtitle = label(panel, "Developer visualization · test targets only", UDim2.fromOffset(19, 43), UDim2.new(1, -38, 0, 16), 8, MUTED, Enum.Font.Gotham)
-                    panelSubtitle.ZIndex = 21
-
-                    local panelClose = makeButton(panel, "×", UDim2.new(1, -47, 0, 13), UDim2.fromOffset(30, 30), Color3.fromRGB(48, 28, 43))
-                    panelClose.ZIndex = 22
-                    panelClose.TextColor3 = RED
-                    panelClose.TextSize = 21
-                    panelClose.MouseButton1Click:Connect(function()
-                        tween(panel, 0.16, {Position = UDim2.fromScale(0.5, 0.54), BackgroundTransparency = 1})
-                        task.wait(0.17)
-                        if panel.Parent then panel:Destroy() end
+                    executeButton.Active = false
+                    executeButton.Text = "LAUNCHING ESP..."
+                    statusLabel.Text = "Starting Advanced Team ESP V3..."
+                    statusLabel.TextColor3 = CYAN
+                    task.spawn(function()
+                        local ok, err = pcall(config.onExecuteTool, "ESP")
+                        if executeButton and executeButton.Parent then
+                            executeButton.Active = true
+                            executeButton.Text = "▶   EXECUTE"
+                            statusLabel.Text = ok and "ESP UI launched" or ("Launch failed: " .. tostring(err))
+                            statusLabel.TextColor3 = ok and GREEN or RED
+                        end
                     end)
-
-                    local status = label(panel, "", UDim2.fromOffset(19, 86), UDim2.new(1, -38, 0, 34), 9, MUTED, Enum.Font.GothamMedium)
-                    status.ZIndex = 21
-                    status.TextWrapped = true
-                    status.TextYAlignment = Enum.TextYAlignment.Center
-
-                    local function refreshStatus()
-                        local countTargets = 0
-                        for target, highlight in pairs(activeEsp.highlights) do
-                            if target and target.Parent and highlight and highlight.Parent then
-                                countTargets = countTargets + 1
-                            end
-                        end
-                        if activeEsp.enabled then
-                            status.Text = countTargets > 0 and ("ESP is ON · " .. countTargets .. " test target(s) highlighted") or "ESP is ON · add Models or Parts to workspace.ToTNexusTestTargets"
-                            status.TextColor3 = countTargets > 0 and GREEN or MUTED
-                        else
-                            status.Text = "ESP is OFF · press Enable ESP to start highlighting test targets"
-                            status.TextColor3 = MUTED
-                        end
-                    end
-
-                    local toggle = makeButton(panel, "", UDim2.fromOffset(18, 145), UDim2.new(1, -36, 0, 42), ACCENT_DARK)
-                    toggle.ZIndex = 21
-                    toggle.TextSize = 11
-                    local toggleStroke = Instance.new("UIStroke", toggle)
-                    toggleStroke.Color = CYAN
-                    toggleStroke.Transparency = 0.55
-
-                    local function refreshButton()
-                        toggle.Text = activeEsp.enabled and "■   DISABLE ESP" or "▶   ENABLE ESP"
-                        toggle.BackgroundColor3 = activeEsp.enabled and Color3.fromRGB(65, 38, 65) or ACCENT_DARK
-                        refreshStatus()
-                    end
-
-                    toggle.MouseButton1Click:Connect(function()
-                        if activeEsp.enabled then
-                            stopEsp()
-                            refreshButton()
-                            return
-                        end
-
-                        local folder = workspace:FindFirstChild("ToTNexusTestTargets")
-                        if not folder then
-                            folder = Instance.new("Folder")
-                            folder.Name = "ToTNexusTestTargets"
-                            folder.Parent = workspace
-                        end
-
-                        activeEsp.enabled = true
-                        for _, target in ipairs(folder:GetChildren()) do addEspTarget(target) end
-                        table.insert(activeEsp.connections, folder.ChildAdded:Connect(function(target)
-                            addEspTarget(target)
-                            refreshStatus()
-                        end))
-                        table.insert(activeEsp.connections, folder.ChildRemoved:Connect(function(target)
-                            local highlight = activeEsp.highlights[target]
-                            if highlight then
-                                highlight:Destroy()
-                                activeEsp.highlights[target] = nil
-                            end
-                            refreshStatus()
-                        end))
-                        refreshButton()
-                    end)
-
-                    local note = label(panel, "Only objects placed in the developer test-target folder are highlighted.", UDim2.fromOffset(19, 202), UDim2.new(1, -38, 0, 28), 8, MUTED, Enum.Font.Gotham)
-                    note.ZIndex = 21
-                    note.TextWrapped = true
-                    tween(panel, 0.2, {Position = UDim2.fromScale(0.5, 0.5)})
-                    refreshButton()
                 end)
             end)
         end
