@@ -1,5 +1,5 @@
 -- ToT Nexus | Advanced Team ESP V3
--- NEXUS_BUILD_ID: 2026.11.20.5
+-- NEXUS_BUILD_ID: 2026.11.20.6
 -- Standalone client-side player ESP UI. Uses a single Highlight per player with low-overhead team coloring.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -114,7 +114,8 @@ local function updateVisibility(player)
 
     -- One ray per enemy per interval. No transparent-part scanning or retry chains.
     local result = workspace:Raycast(origin, direction, params)
-    record.visible = result ~= nil and result.Instance:IsDescendantOf(character)
+    -- No hit means the ray reached the target without an obstruction.
+    record.visible = result == nil or result.Instance:IsDescendantOf(character)
     local color = record.visible and COLORS.Visible or COLORS.Hidden
     record.instance.FillColor = color
     record.instance.OutlineColor = color
@@ -297,39 +298,40 @@ reopenButton.MouseButton1Click:Connect(function()
     reopenButton.Visible = false
 end)
 
--- Dedicated drag surface + UserInputService movement handling. No frame polling.
+-- Global input capture makes dragging work even when the touch begins over
+-- the title labels rather than the header Frame itself.
 do
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
+    local dragging, dragInput = false, nil
+    local dragStart, startPos
     local function beginDrag(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        dragging = true
-        dragInput = input
-        dragStart = input.Position
-        startPos = panel.Position
+        local x = input.Position.X - top.AbsolutePosition.X
+        local y = input.Position.Y - top.AbsolutePosition.Y
+        if x < 0 or x > (top.AbsoluteSize.X - 44) or y < 0 or y > top.AbsoluteSize.Y then return end
+        dragging, dragInput = true, input
+        dragStart, startPos = input.Position, panel.Position
     end
-    top.InputBegan:Connect(beginDrag)
-    connect(UserInputService.InputChanged, function(input)
+    local function move(input)
         if not dragging or not dragStart or not startPos then return end
-        local isMouseMove = input.UserInputType == Enum.UserInputType.MouseMovement
-        local isTouchMove = input.UserInputType == Enum.UserInputType.Touch and dragInput
+        local mouseMove = input.UserInputType == Enum.UserInputType.MouseMovement
+        local touchMove = input.UserInputType == Enum.UserInputType.Touch and dragInput
             and input.TouchId == dragInput.TouchId
-        if isMouseMove or isTouchMove then
+        if mouseMove or touchMove then
             local delta = input.Position - dragStart
             panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
                 startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
-    end)
-    connect(UserInputService.InputEnded, function(input)
-        if input == dragInput or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-            dragInput = nil
-            dragStart = nil
-            startPos = nil
+    end
+    local function finish(input)
+        if input == dragInput or (dragInput and input.UserInputType == Enum.UserInputType.Touch and input.TouchId == dragInput.TouchId)
+            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging, dragInput, dragStart, startPos = false, nil, nil, nil
         end
-    end)
+    end
+    connect(UserInputService.InputBegan, beginDrag)
+    connect(UserInputService.InputChanged, move)
+    connect(UserInputService.TouchMoved, move)
+    connect(UserInputService.InputEnded, finish)
 end
 
 for _, player in ipairs(Players:GetPlayers()) do trackPlayer(player) end
