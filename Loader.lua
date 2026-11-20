@@ -15,6 +15,33 @@ local VERSION = "3.10"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
+-- Per-script lifecycle registry. Re-running a uniqid cleans up its previous instance;
+-- different uniqids remain independent and may run at the same time.
+local NexusEnv = getgenv()
+NexusEnv.ToTNexusScriptRegistry = NexusEnv.ToTNexusScriptRegistry or {}
+NexusEnv.ToTNexusStartScript = function(uniqid, cleanup)
+    assert(type(uniqid) == "string" and uniqid ~= "", "A stable script uniqid is required")
+    local registry = NexusEnv.ToTNexusScriptRegistry
+    local previous = registry[uniqid]
+    if previous and type(previous.cleanup) == "function" then
+        pcall(previous.cleanup)
+    end
+    local token = {}
+    registry[uniqid] = { token = token, cleanup = cleanup }
+    return function()
+        local current = registry[uniqid]
+        return current ~= nil and current.token == token
+    end
+end
+NexusEnv.ToTNexusStopScript = function(uniqid)
+    local registry = NexusEnv.ToTNexusScriptRegistry
+    local current = registry[uniqid]
+    if current then
+        registry[uniqid] = nil
+        if type(current.cleanup) == "function" then pcall(current.cleanup) end
+    end
+end
+
 -- Registered games: key = main PlaceId
 -- Features: listed in the boot feed by name.
 -- GatedFeatures: shown as masked (•••••• + LOCKED) unless the user passes
@@ -820,11 +847,20 @@ if splash then
     splash.finish()
 end
 
+local gameScriptExecuting = false
 local function executeGameScript()
-    if getgenv().ToTNexusGameStarted then return end
-    getgenv().ToTNexusGameStarted = true
+    if gameScriptExecuting then return end
+    gameScriptExecuting = true
     print("[ToT Nexus] Executing " .. entry.Name)
-    loadstring(scriptSrc)()
+    local fn = loadstring(scriptSrc)
+    if not fn then
+        gameScriptExecuting = false
+        warn("[ToT Nexus] Game script compilation failed")
+        return
+    end
+    local ok, err = pcall(fn)
+    gameScriptExecuting = false
+    if not ok then warn("[ToT Nexus] Game script error: " .. tostring(err)) end
 end
 
 local okLibrary, librarySource = pcall(function()
