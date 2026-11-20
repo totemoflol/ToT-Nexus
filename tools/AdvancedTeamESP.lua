@@ -1,5 +1,5 @@
 -- ToT Nexus | Advanced Team ESP V3
--- Standalone client-side player ESP UI. Designed to be executed by the Nexus loader.
+-- Standalone client-side player ESP UI. Uses a single Highlight per player for stability.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -98,21 +98,9 @@ local function applyPlayer(player)
         h.FillTransparency = 0.82
         h.OutlineTransparency = 0.04
         h.Parent = character
+        -- Use one native Highlight per character. Avoid per-limb adornments:
+        -- they multiply draw calls and can overwhelm lower-end/mobile clients.
         record = {instance = h, character = character, surfaces = {}}
-        -- Add translucent surface patches to each body part as well as the silhouette outline.
-        for _, part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                local patch = Instance.new("BoxHandleAdornment")
-                patch.Name = "ToTNexus_ESP_Surface"
-                patch.Adornee = part
-                patch.Size = part.Size
-                patch.AlwaysOnTop = true
-                patch.ZIndex = 4
-                patch.Transparency = 0.76
-                patch.Parent = part
-                table.insert(record.surfaces, patch)
-            end
-        end
         highlights[player] = record
     end
 
@@ -124,9 +112,6 @@ local function applyPlayer(player)
     end
     record.instance.FillColor = color
     record.instance.OutlineColor = color
-    for _, patch in ipairs(record.surfaces) do
-        if patch and patch.Parent then patch.Color3 = color end
-    end
 end
 
 local function refreshAll()
@@ -333,7 +318,7 @@ connect(Players.PlayerAdded, trackPlayer)
 connect(Players.PlayerRemoving, untrackPlayer)
 local lastRefresh = 0
 connect(RunService.Heartbeat, function()
-    if enabled and alive and os.clock() - lastRefresh >= 0.2 then
+    if enabled and alive and os.clock() - lastRefresh >= 0.85 then
         lastRefresh = os.clock()
         refreshAll()
     end
