@@ -1,11 +1,11 @@
 {
-  "version": "3.17",
-  "build": "2026.11.20.10",
+  "version": "3.18",
+  "build": "2026.11.20.11",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.10",
-    "GeneralScripts": "2026.11.20.10",
-    "AdvancedTeamESP": "2026.11.20.10"
+    "Loader": "2026.11.20.11",
+    "GeneralScripts": "2026.11.20.11",
+    "AdvancedTeamESP": "2026.11.20.11"
   },
-  "notes": "Native per-limb Highlights with immediate red/green enemy visibility changes and blue teammate highlights."
+  "notes": "10 Hz native per-limb visibility refresh with center-first and four camera-facing surface ray samples, plus transparent/glass pass-through."
 }
