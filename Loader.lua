@@ -847,20 +847,85 @@ if splash then
     splash.finish()
 end
 
-local gameScriptExecuting = false
-local function executeGameScript()
-    if gameScriptExecuting then return end
-    gameScriptExecuting = true
-    print("[ToT Nexus] Executing " .. entry.Name)
-    local fn = loadstring(scriptSrc)
+-- Build the complete registered-game catalog for the launcher.
+local catalog = {}
+for placeId, gameEntry in pairs(Games) do
+    local gameIcon = (entry == gameEntry) and iconUrl or nil
+    if not gameIcon then
+        pcall(function() gameIcon = fetchGameIcon(placeId) end)
+    end
+    catalog[#catalog + 1] = {
+        Id = tostring(placeId),
+        PlaceId = placeId,
+        Name = gameEntry.Name,
+        Icon = gameIcon,
+        Features = gameEntry.Features or {},
+        GatedFeatures = gameEntry.GatedFeatures or {},
+        Supported = true,
+    }
+end
+table.sort(catalog, function(a, b) return a.Name < b.Name end)
+
+local currentGame = nil
+for _, item in ipairs(catalog) do
+    if item.PlaceId == game.PlaceId or (entry and item.Name == entry.Name) then
+        currentGame = item
+        break
+    end
+end
+if not currentGame then
+    currentGame = {
+        Id = "current-" .. tostring(game.PlaceId),
+        PlaceId = game.PlaceId,
+        Name = entry and entry.Name or game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name,
+        Icon = iconUrl,
+        Features = {},
+        Supported = false,
+        IsCurrent = true,
+    }
+    table.insert(catalog, 1, currentGame)
+end
+currentGame.IsCurrent = true
+
+local runningGameScripts = {}
+local function executeSelectedGame(selected)
+    if not selected or not selected.Supported then return end
+    local uniqid = "game-" .. tostring(selected.Id)
+    local isCurrent = getgenv().ToTNexusStartScript(uniqid, function()
+        local old = runningGameScripts[uniqid]
+        if old and old.cleanup then pcall(old.cleanup) end
+        runningGameScripts[uniqid] = nil
+    end)
+    local source
+    if selected.Id == tostring(game.PlaceId) and scriptSrc then
+        source = scriptSrc
+    else
+        local targetEntry
+        for placeId, candidate in pairs(Games) do
+            if tostring(placeId) == selected.Id then targetEntry = candidate break end
+        end
+        if not targetEntry then
+            getgenv().ToTNexusStopScript(uniqid)
+            return
+        end
+        local ok, result = pcall(function() return game:HttpGet(targetEntry.Script) end)
+        if not ok or type(result) ~= "string" or #result < 50 then
+            warn("[ToT Nexus] Failed to fetch " .. selected.Name)
+            getgenv().ToTNexusStopScript(uniqid)
+            return
+        end
+        source = result
+    end
+    if not isCurrent() then return end
+    print("[ToT Nexus] Executing " .. selected.Name)
+    local fn, compileErr = loadstring(source)
     if not fn then
-        gameScriptExecuting = false
-        warn("[ToT Nexus] Game script compilation failed")
+        warn("[ToT Nexus] Compile error: " .. tostring(compileErr))
+        getgenv().ToTNexusStopScript(uniqid)
         return
     end
     local ok, err = pcall(fn)
-    gameScriptExecuting = false
-    if not ok then warn("[ToT Nexus] Game script error: " .. tostring(err)) end
+    if not ok then warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(err)) end
 end
 
 local okLibrary, librarySource = pcall(function()
@@ -868,13 +933,15 @@ local okLibrary, librarySource = pcall(function()
 end)
 if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
     local okRun, runErr = pcall(function()
-        loadstring(librarySource)(executeGameScript)
+        loadstring(librarySource)({
+            games = catalog,
+            currentGameId = currentGame.Id,
+            onExecute = executeSelectedGame,
+        })
     end)
     if not okRun then
-        warn("[ToT Nexus] General Scripts UI failed: " .. tostring(runErr))
-        executeGameScript()
+        warn("[ToT Nexus] Game library UI failed: " .. tostring(runErr))
     end
 else
-    warn("[ToT Nexus] General Scripts UI unavailable")
-    executeGameScript()
+    warn("[ToT Nexus] Game library UI unavailable")
 end
