@@ -1,8 +1,9 @@
 -- ToT Nexus | Advanced Team ESP V3
--- NEXUS_BUILD_ID: 2026.11.20.7
+-- NEXUS_BUILD_ID: 2026.11.20.8
 -- Standalone client-side player ESP UI. Uses a single Highlight per player with low-overhead team coloring.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 local ENV = (getgenv and getgenv()) or _G
@@ -50,15 +51,38 @@ local function isAlly(player)
     return false
 end
 
+-- Per-limb native Highlights approximate partially exposed silhouettes.
+-- A native Highlight cannot independently color pixels within one limb.
+local MAX_PARTS = 12
+local VISIBILITY_INTERVAL = 0.9
+local TEAM_INTERVAL = 7
+local COLOR_TWEEN = TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
+local function isRenderablePart(part)
+    return part:IsA("BasePart") and part.Name ~= "HumanoidRootPart"
+        and part.Transparency < 0.95 and not part:FindFirstAncestorOfClass("Accessory")
+end
+
 local function clearPlayer(player)
-    local h = highlights[player]
-    if h then
-        if h.instance then pcall(function() h.instance:Destroy() end) end
-        for _, patch in ipairs(h.surfaces or {}) do
-            pcall(function() patch:Destroy() end)
-        end
-        highlights[player] = nil
+    local record = highlights[player]
+    if not record then return end
+    for _, item in ipairs(record.items) do
+        if item.tween then pcall(function() item.tween:Cancel() end) end
+        if item.highlight then pcall(function() item.highlight:Destroy() end) end
     end
+    highlights[player] = nil
+end
+
+local function setPartColor(item, color)
+    if item.targetColor == color then return end
+    item.targetColor = color
+    if item.tween then pcall(function() item.tween:Cancel() end) end
+    local animation = TweenService:Create(item.highlight, COLOR_TWEEN, {
+        FillColor = color,
+        OutlineColor = color,
+    })
+    item.tween = animation
+    animation:Play()
 end
 
 local function applyPlayer(player)
@@ -69,75 +93,77 @@ local function applyPlayer(player)
     if not humanoid or humanoid.Health <= 0 then clearPlayer(player) return end
 
     local record = highlights[player]
-    if not record or record.character ~= character or not record.instance or not record.instance.Parent then
+    if not record or record.character ~= character then
         clearPlayer(player)
-        local h = Instance.new("Highlight")
-        h.Name = "ToTNexus_AdvancedTeamESP"
-        h.Adornee = character
-        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        h.FillTransparency = 0.82
-        h.OutlineTransparency = 0.04
-        h.Parent = character
-        -- Use one native Highlight per character. Avoid per-limb adornments:
-        -- they multiply draw calls and can overwhelm lower-end/mobile clients.
-        record = {instance = h, character = character, surfaces = {}, visible = false}
+        record = {character = character, items = {}}
         highlights[player] = record
     end
-
-    local color
-    -- Initial color is team-aware. Visibility is updated by the throttled
-    -- raycast worker below, never from RenderStepped or per-frame callbacks.
-    if isAlly(player) then
-        color = COLORS.Ally
-    else
-        color = record.visible and COLORS.Visible or COLORS.Hidden
+    local known = {}
+    for _, item in ipairs(record.items) do known[item.part] = true end
+    for _, part in ipairs(character:GetChildren()) do
+        if #record.items >= MAX_PARTS then break end
+        if isRenderablePart(part) and not known[part] then
+            local h = Instance.new("Highlight")
+            h.Name = "ToTNexus_LimbESP"
+            h.Adornee = part
+            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            h.FillTransparency = 0.82
+            h.OutlineTransparency = 0.04
+            local initial = isAlly(player) and COLORS.Ally or COLORS.Hidden
+            h.FillColor = initial
+            h.OutlineColor = initial
+            h.Parent = part
+            table.insert(record.items, {part = part, highlight = h, targetColor = initial})
+        end
     end
-    record.instance.FillColor = color
-    record.instance.OutlineColor = color
+    local ally = isAlly(player)
+    if ally then
+        for _, item in ipairs(record.items) do setPartColor(item, COLORS.Ally) end
+    else
+        for _, item in ipairs(record.items) do
+            if item.targetColor == COLORS.Ally then setPartColor(item, COLORS.Hidden) end
+        end
+    end
+end
+
+local function canSeePoint(origin, point, character, params, excluded)
+    local direction = point - origin
+    for attempt = 1, 3 do
+        params.FilterDescendantsInstances = excluded
+        local result = workspace:Raycast(origin, direction, params)
+        if not result or result.Instance:IsDescendantOf(character) then return true end
+        local hit = result.Instance
+        if attempt < 3 and hit:IsA("BasePart")
+            and (hit.Transparency >= 0.65 or hit.Material == Enum.Material.Glass) then
+            table.insert(excluded, hit)
+        else
+            return false
+        end
+    end
+    return false
 end
 
 local function updateVisibility(player)
-    if not alive or not enabled or player == LocalPlayer or isAlly(player) then return end
+    if not alive or not enabled or player == LocalPlayer then return end
     local record = highlights[player]
-    local character = player.Character
-    if not record or not record.instance or not record.instance.Parent or not character then return end
+    if not record or not record.character or not record.character.Parent then return end
+    if isAlly(player) then
+        for _, item in ipairs(record.items) do setPartColor(item, COLORS.Ally) end
+        return
+    end
     local camera = workspace.CurrentCamera
-    local target = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
-    if not camera or not target or not target:IsA("BasePart") then return end
-
+    if not camera then return end
     local origin = camera.CFrame.Position
-    local direction = target.Position - origin
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = LocalPlayer.Character and {LocalPlayer.Character} or {}
     params.IgnoreWater = true
-
-    -- Bounded line-of-sight check: skip a small number of transparent/glass blockers.
-    local excluded = LocalPlayer.Character and {LocalPlayer.Character} or {}
-    local visible = false
-    for attempt = 1, 4 do
-        params.FilterDescendantsInstances = excluded
-        local result = workspace:Raycast(origin, direction, params)
-        if not result then
-            visible = true
-            break
-        end
-        if result.Instance:IsDescendantOf(character) then
-            visible = true
-            break
-        end
-        local hit = result.Instance
-        local transparent = hit:IsA("BasePart") and (hit.Transparency >= 0.65 or hit.Material == Enum.Material.Glass)
-        if transparent and attempt < 4 then
-            table.insert(excluded, hit)
-        else
-            break
+    for _, item in ipairs(record.items) do
+        if item.part.Parent and item.highlight.Parent then
+            local excluded = LocalPlayer.Character and {LocalPlayer.Character} or {}
+            local visible = canSeePoint(origin, item.part.Position, record.character, params, excluded)
+            setPartColor(item, visible and COLORS.Visible or COLORS.Hidden)
         end
     end
-    record.visible = visible
-    local color = record.visible and COLORS.Visible or COLORS.Hidden
-    record.instance.FillColor = color
-    record.instance.OutlineColor = color
 end
 
 local function refreshAll()
@@ -158,6 +184,9 @@ local function trackPlayer(player)
         clearPlayer(player)
     end, bucket)
     connect(player:GetPropertyChangedSignal("Team"), function()
+        if enabled then applyPlayer(player) end
+    end, bucket)
+    connect(player:GetPropertyChangedSignal("TeamColor"), function()
         if enabled then applyPlayer(player) end
     end, bucket)
     if player.Character and enabled then applyPlayer(player) end
@@ -291,7 +320,7 @@ local function setEnabled(value)
     if enabled then
         toggle.Text = "DISABLE ESP"
         toggle.BackgroundColor3 = Color3.fromRGB(65, 45, 105)
-        status.Text = "ESP ACTIVE · VISIBILITY CHECK"
+        status.Text = "ESP ACTIVE · PARTIAL VISIBILITY"
         status.TextColor3 = COLORS.Cyan
         refreshAll()
     else
@@ -356,15 +385,28 @@ end
 for _, player in ipairs(Players:GetPlayers()) do trackPlayer(player) end
 connect(Players.PlayerAdded, trackPlayer)
 connect(Players.PlayerRemoving, untrackPlayer)
--- Low-frequency visibility worker: sleeps while disabled and raycasts only once
--- per enemy per pass. Player/character/team events still own highlight lifecycle.
+-- Periodic team reconciliation catches games that update team state indirectly.
+connect(LocalPlayer:GetPropertyChangedSignal("Team"), function()
+    if enabled then refreshAll() end
+end)
+connect(LocalPlayer:GetPropertyChangedSignal("TeamColor"), function()
+    if enabled then refreshAll() end
+end)
+task.spawn(function()
+    while alive do
+        if enabled then refreshAll() end
+        task.wait(TEAM_INTERVAL)
+    end
+end)
+
+-- Throttled, bounded per-limb visibility checks. No RenderStepped/Heartbeat.
 task.spawn(function()
     while alive do
         if enabled then
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer then updateVisibility(player) end
             end
-            task.wait(0.75)
+            task.wait(VISIBILITY_INTERVAL)
         else
             task.wait(0.5)
         end
