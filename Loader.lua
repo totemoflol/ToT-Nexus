@@ -102,20 +102,30 @@ end
 
 -- Game photo via the Roblox thumbnails API -> CDN url (nil on failure)
 local function fetchGameIcon(placeId)
-    local ok, body = pcall(function()
-        return game:HttpGet("https://thumbnails.roblox.com/v1/places/gameicons?placeIds="
-            .. placeId .. "&size=512x512&format=Png")
-    end)
-    if not ok then return nil end
-
-    local okD, data = pcall(function() return HttpService:JSONDecode(body) end)
-    if not okD or type(data) ~= "table" or type(data.data) ~= "table" then
-        return nil
+    -- Prefer the official Roblox experience icon endpoint (universe ID).
+    local registered = Games[placeId]
+    local endpoints = {}
+    if registered and registered.UniverseId then
+        table.insert(endpoints,
+            "https://thumbnails.roblox.com/v1/games/icons?universeIds="
+            .. registered.UniverseId .. "&size=512x512&format=Png&isCircular=false")
     end
+    -- Compatibility fallback for older place-icon endpoint.
+    table.insert(endpoints,
+        "https://thumbnails.roblox.com/v1/places/gameicons?placeIds="
+        .. placeId .. "&size=512x512&format=Png")
 
-    local entry = data.data[1]
-    if entry and entry.state == "Completed" and entry.imageUrl then
-        return entry.imageUrl
+    for _, endpoint in ipairs(endpoints) do
+        local ok, body = pcall(function() return game:HttpGet(endpoint) end)
+        if ok and type(body) == "string" then
+            local okD, data = pcall(function() return HttpService:JSONDecode(body) end)
+            if okD and type(data) == "table" and type(data.data) == "table" then
+                local item = data.data[1]
+                if item and item.state == "Completed" and item.imageUrl then
+                    return item.imageUrl
+                end
+            end
+        end
     end
     return nil
 end
