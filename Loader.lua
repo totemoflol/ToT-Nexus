@@ -1,5 +1,6 @@
 -- ==================================================================================
 -- ToT Nexus | Universal Loader + branded splash UI
+-- NEXUS_BUILD_ID: 2026.11.20.13
 -- Detects the current game, shows its Roblox icon, plays the boot sequence,
 -- then executes the game script. All network fetches run in parallel.
 -- ==================================================================================
@@ -11,8 +12,8 @@ local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 
-local VERSION = "3.19"
-local BUILD_ID = "2026.11.20.12"
+local VERSION = "3.20"
+local BUILD_ID = "2026.11.20.13"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
@@ -34,7 +35,6 @@ local remoteVersion = fetchLatestVersion()
 local componentStatuses = {
     Loader = "UNKNOWN",
     GeneralScripts = "UNKNOWN",
-    AdvancedTeamESP = "NOT CHECKED",
 }
 local versionStatus = "UNKNOWN"
 local versionState = { status = versionStatus }
@@ -48,7 +48,7 @@ if componentStatuses.Loader == "OUTDATED" then
     warn("[ToT Nexus] Loader is outdated. Running " .. BUILD_ID .. "; latest is " .. tostring(remoteVersion.components.Loader) .. ". Re-execute the latest loader.")
 end
 local function refreshOverallVersionStatus()
-    local statuses = {componentStatuses.Loader, componentStatuses.GeneralScripts, componentStatuses.AdvancedTeamESP}
+    local statuses = {componentStatuses.Loader, componentStatuses.GeneralScripts}
     local hasOutdated, hasUnknown = false, false
     for _, status in ipairs(statuses) do
         if status == "OUTDATED" then hasOutdated = true end
@@ -164,17 +164,6 @@ local function fetchGameIcon(placeId)
     local universeId = registered and registered.UniverseId or placeId
     return "rbxthumb://type=GameIcon&id=" .. tostring(universeId) .. "&w=512&h=512"
 end
-local function executeGeneralTool(toolName)
-    if toolName ~= "ESP" then error("Unknown General Tool: " .. tostring(toolName)) end
-    local source = game:HttpGet(cacheBusted(BASE .. "/tools/AdvancedTeamESP.lua"))
-    assert(type(source) == "string" and #source > 1000, "ESP tool source is empty or unavailable")
-    inspectComponentSource("AdvancedTeamESP", source)
-    local fn, compileErr = loadstring(source)
-    assert(fn, "ESP compile error: " .. tostring(compileErr))
-    return fn()
-end
-
-
 -- ==================================================================================
 -- Splash UI
 -- ==================================================================================
@@ -873,7 +862,6 @@ if not entry then
                     local ran, err = pcall(fn)
                     if not ran then warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(err)) end
                 end,
-                onExecuteTool = executeGeneralTool,
             version = VERSION,
             buildId = BUILD_ID,
             latestVersion = remoteVersion and tostring(remoteVersion.version) or "Unknown",
@@ -1115,7 +1103,6 @@ if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
             games = catalog,
             currentGameId = currentGame.Id,
             onExecute = executeSelectedGame,
-            onExecuteTool = executeGeneralTool,
             version = VERSION,
             buildId = BUILD_ID,
             latestVersion = remoteVersion and tostring(remoteVersion.version) or "Unknown",
