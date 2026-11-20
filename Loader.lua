@@ -709,11 +709,8 @@ if not entry then
     end
     task.wait(0.4)
 
-    -- Unsupported is informational only; keep the library usable.
-    task.spawn(function()
-        task.wait(1)
-        if splash then splash.finish() end
-    end)
+    -- Unsupported is informational only; keep the splash alive until the library
+    -- has successfully mounted. Finishing it in a background task races library setup.
     startImportTool()
 
     -- Unsupported current experience still opens the full game catalog.
@@ -747,9 +744,14 @@ if not entry then
     local okLibrary, librarySource = pcall(function()
         return game:HttpGet(BASE .. "/tools/GeneralScripts.lua")
     end)
+    local libraryMounted = false
     if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
         local okRun, runErr = pcall(function()
-            loadstring(librarySource)({
+            local libraryFactory = loadstring(librarySource)
+            assert(type(libraryFactory) == "function", "Library source did not compile")
+            local mountLibrary = libraryFactory()
+            assert(type(mountLibrary) == "function", "Library source did not return a mount function")
+            mountLibrary({
                 games = catalog,
                 currentGameId = current.Id,
                 onExecute = function(selected)
@@ -777,12 +779,19 @@ if not entry then
                     if not ran then warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(err)) end
                 end,
             })
+            libraryMounted = true
         end)
         if not okRun then warn("[ToT Nexus] Game library UI failed: " .. tostring(runErr)) end
+    else
+        warn("[ToT Nexus] Game library source unavailable")
     end
-    -- Close only the boot splash after the library has been created.
-    -- Never destroy the library itself for an unsupported current game.
-    if splash then splash.finish() end
+
+    if libraryMounted then
+        task.wait(0.5)
+        if splash then splash.finish() end
+    else
+        if splash then splash.fail("Library failed to open") end
+    end
     return
 end
 
