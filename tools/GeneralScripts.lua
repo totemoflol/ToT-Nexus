@@ -169,6 +169,12 @@ return function(config)
 
     label(card, "ToT Nexus", UDim2.fromOffset(68, 15), UDim2.new(1, -140, 0, 25), 19, TEXT, Enum.Font.GothamBold)
     label(card, "UNIVERSAL GAME HUB  /  LIBRARY", UDim2.fromOffset(69, 39), UDim2.new(1, -150, 0, 13), 8, CYAN, Enum.Font.GothamBold)
+    local versionText = "v" .. tostring(config.version or "?") .. " · " .. tostring(config.versionStatus or "UNKNOWN")
+    local versionBadge = label(card, versionText, UDim2.new(1, -214, 0, 43), UDim2.fromOffset(164, 12), 7,
+        config.versionStatus == "UP TO DATE" and GREEN or (config.versionStatus == "UPDATE AVAILABLE" and RED or MUTED),
+        Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+    versionBadge.Name = "VersionStatus"
+
 
     local minimized = false
     local closeConfirm
@@ -825,6 +831,45 @@ return function(config)
         end
     end
 
+
+
+    local function showVersionDetails()
+        local content = Instance.new("CanvasGroup")
+        content.Name = "VersionDetails"
+        content.Size = UDim2.fromScale(1, 1)
+        content.BackgroundTransparency = 1
+        content.Parent = detail
+        for _, child in ipairs(detail:GetChildren()) do
+            if child ~= detailStroke and child ~= content then child:Destroy() end
+        end
+        label(content, "VERSION STATUS", UDim2.fromOffset(17, 16), UDim2.new(1, -34, 0, 23), 16, TEXT, Enum.Font.GothamBold)
+        label(content, "LOADER AND REMOTE BUILD COMPARISON", UDim2.fromOffset(18, 40), UDim2.new(1, -36, 0, 14), 8, CYAN, Enum.Font.GothamBold)
+
+        local rows = {
+            {"RUNNING LOADER", tostring(config.version or "Unknown") .. " · " .. tostring(config.buildId or "Unknown")},
+            {"LATEST ON GITHUB", tostring(config.latestVersion or "Unknown") .. " · " .. tostring(config.latestBuildId or "Unknown")},
+            {"STATUS", tostring(config.versionStatus or "UNKNOWN")},
+        }
+        for i, row in ipairs(rows) do
+            local y = 76 + (i - 1) * 58
+            local item = Instance.new("Frame")
+            item.Position = UDim2.fromOffset(14, y)
+            item.Size = UDim2.new(1, -28, 0, 49)
+            item.BackgroundColor3 = PANEL2
+            item.BorderSizePixel = 0
+            item.Parent = content
+            corner(item, 9)
+            label(item, row[1], UDim2.fromOffset(11, 5), UDim2.new(1, -22, 0, 12), 7, MUTED, Enum.Font.GothamBold)
+            label(item, row[2], UDim2.fromOffset(11, 19), UDim2.new(1, -22, 0, 23), 10, row[1] == "STATUS" and (config.versionStatus == "UP TO DATE" and GREEN or RED) or TEXT, Enum.Font.GothamSemibold)
+        end
+        label(content, "If the versions differ, close the current library and re-execute the latest loader. The loader checks GitHub with a cache-busting request.", UDim2.fromOffset(17, 260), UDim2.new(1, -34, 0, 54), 9, MUTED, Enum.Font.Gotham)
+    end
+
+    versionBadge.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            showVersionDetails()
+        end
+    end)
 
     local function showUpdateLog()
         local content = Instance.new("CanvasGroup")
