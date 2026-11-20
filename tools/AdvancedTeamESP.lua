@@ -1,5 +1,5 @@
 -- ToT Nexus | Advanced Team ESP V5
--- NEXUS_BUILD_ID: 2026.11.20.11
+-- NEXUS_BUILD_ID: 2026.11.20.12
 -- Standalone client-side player ESP UI. Uses native per-limb Highlights with immediate visibility colors.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -52,7 +52,10 @@ end
 
 -- Native Roblox Highlights, one per body part. Color changes are immediate (no tween).
 local MAX_PARTS = 12
-local VISIBILITY_INTERVAL = 0.10
+local MIN_UPDATE_RATE = 1
+local MAX_UPDATE_RATE = 60
+local updateRate = 10
+local VISIBILITY_INTERVAL = 1 / updateRate
 local TEAM_INTERVAL = 7
 local highlights = {}
 
@@ -279,7 +282,7 @@ local panel = Instance.new("Frame")
 panel.Name = "ESPWindow"
 panel.AnchorPoint = Vector2.new(0.5, 0)
 panel.Position = UDim2.new(0.5, 0, 0, 72)
-panel.Size = UDim2.fromOffset(300, 188)
+panel.Size = UDim2.fromOffset(300, 238)
 panel.BackgroundColor3 = COLORS.Background
 panel.BorderSizePixel = 0
 panel.Parent = gui
@@ -315,9 +318,93 @@ local toggle = makeButton(panel, "ENABLE ESP", UDim2.fromOffset(16, 91), UDim2.n
 toggle.BackgroundColor3 = COLORS.Accent
 toggle.TextSize = 12
 
+local rateLabel = makeText(panel, "VISIBILITY CHECK RATE", UDim2.fromOffset(17, 139), UDim2.fromOffset(190, 15), 8, COLORS.Muted, Enum.Font.GothamBold)
+
+local rateTrack = Instance.new("Frame")
+rateTrack.Position = UDim2.fromOffset(17, 169)
+rateTrack.Size = UDim2.fromOffset(185, 6)
+rateTrack.BackgroundColor3 = COLORS.Panel
+rateTrack.BorderSizePixel = 0
+rateTrack.Parent = panel
+corner(rateTrack, 5)
+
+local rateFill = Instance.new("Frame")
+rateFill.Size = UDim2.new((updateRate - MIN_UPDATE_RATE) / (MAX_UPDATE_RATE - MIN_UPDATE_RATE), 0, 1, 0)
+rateFill.BackgroundColor3 = COLORS.Cyan
+rateFill.BorderSizePixel = 0
+rateFill.Parent = rateTrack
+corner(rateFill, 5)
+
+local rateKnob = Instance.new("Frame")
+rateKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+rateKnob.Position = UDim2.new((updateRate - MIN_UPDATE_RATE) / (MAX_UPDATE_RATE - MIN_UPDATE_RATE), 0, 0.5, 0)
+rateKnob.Size = UDim2.fromOffset(14, 14)
+rateKnob.BackgroundColor3 = COLORS.Text
+rateKnob.BorderSizePixel = 0
+rateKnob.Parent = rateTrack
+corner(rateKnob, 8)
+
+local rateBox = Instance.new("TextBox")
+rateBox.Position = UDim2.fromOffset(218, 153)
+rateBox.Size = UDim2.fromOffset(65, 29)
+rateBox.BackgroundColor3 = COLORS.Panel
+rateBox.BorderSizePixel = 0
+rateBox.Text = tostring(updateRate)
+rateBox.PlaceholderText = "1-60"
+rateBox.ClearTextOnFocus = false
+rateBox.Font = Enum.Font.GothamBold
+rateBox.TextSize = 11
+rateBox.TextColor3 = COLORS.Text
+rateBox.PlaceholderColor3 = COLORS.Muted
+rateBox.Parent = panel
+corner(rateBox, 7)
+
+local rateUnit = makeText(panel, "checks / sec  •  max 60", UDim2.fromOffset(17, 181), UDim2.new(1, -34, 0, 13), 7, COLORS.Muted, Enum.Font.GothamMedium)
+
+local function setUpdateRate(value)
+    value = math.clamp(math.floor(tonumber(value) or updateRate), MIN_UPDATE_RATE, MAX_UPDATE_RATE)
+    updateRate = value
+    VISIBILITY_INTERVAL = 1 / updateRate
+    local alpha = (updateRate - MIN_UPDATE_RATE) / (MAX_UPDATE_RATE - MIN_UPDATE_RATE)
+    rateFill.Size = UDim2.new(alpha, 0, 1, 0)
+    rateKnob.Position = UDim2.new(alpha, 0, 0.5, 0)
+    rateBox.Text = tostring(updateRate)
+end
+
+local function updateRateFromPosition(x)
+    local alpha = math.clamp((x - rateTrack.AbsolutePosition.X) / rateTrack.AbsoluteSize.X, 0, 1)
+    setUpdateRate(MIN_UPDATE_RATE + alpha * (MAX_UPDATE_RATE - MIN_UPDATE_RATE))
+end
+
+local sliderDragging = false
+rateTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = true
+        updateRateFromPosition(input.Position.X)
+    end
+end)
+connect(UserInputService.InputChanged, function(input)
+    if sliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateRateFromPosition(input.Position.X)
+    end
+end)
+connect(UserInputService.InputEnded, function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = false
+    end
+end)
+rateBox.FocusLost:Connect(function()
+    local entered = tonumber(rateBox.Text)
+    if not entered then
+        rateBox.Text = tostring(updateRate)
+    else
+        setUpdateRate(entered)
+    end
+end)
+
 local legend = Instance.new("Frame")
-legend.Position = UDim2.fromOffset(16, 143)
-legend.Size = UDim2.new(1, -32, 0, 27)
+legend.Position = UDim2.fromOffset(16, 204)
+legend.Size = UDim2.new(1, -32, 0, 24)
 legend.BackgroundColor3 = COLORS.Panel
 legend.BorderSizePixel = 0
 legend.Parent = panel
@@ -325,13 +412,13 @@ corner(legend, 8)
 
 local function legendDot(x, color, text)
     local dot = Instance.new("Frame")
-    dot.Position = UDim2.fromOffset(x, 10)
+    dot.Position = UDim2.fromOffset(x, 9)
     dot.Size = UDim2.fromOffset(7, 7)
     dot.BackgroundColor3 = color
     dot.BorderSizePixel = 0
     dot.Parent = legend
     corner(dot, 5)
-    makeText(legend, text, UDim2.fromOffset(x + 12, 0), UDim2.fromOffset(64, 27), 7, COLORS.Muted, Enum.Font.GothamMedium)
+    makeText(legend, text, UDim2.fromOffset(x + 12, 0), UDim2.fromOffset(64, 24), 7, COLORS.Muted, Enum.Font.GothamMedium)
 end
 legendDot(8, COLORS.Ally, "TEAM")
 legendDot(94, COLORS.Visible, "VISIBLE")
