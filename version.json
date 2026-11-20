@@ -1,11 +1,11 @@
 {
   "version": "3.14",
-  "build": "2026.11.20.6",
+  "build": "2026.11.20.7",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.6",
-    "GeneralScripts": "2026.11.20.6",
-    "AdvancedTeamESP": "2026.11.20.6"
+    "Loader": "2026.11.20.7",
+    "GeneralScripts": "2026.11.20.7",
+    "AdvancedTeamESP": "2026.11.20.7"
   },
-  "notes": "Fixes drag input capture using global touch/mouse events; restores throttled line-of-sight raycasting with unobstructed rays treated as visible."
+  "notes": "Restores throttled visibility raycasts with bounded transparent/glass pass-through and fixes global touch/mouse drag handling for both windows."
 }
