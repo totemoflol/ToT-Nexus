@@ -709,16 +709,7 @@ if not entry then
     end
     task.wait(0.4)
 
-    if splash then
-        splash.fail("Game not supported")
-    end
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "ToT Nexus",
-            Text = "This game is not supported yet!",
-            Duration = 5,
-        })
-    end)
+    -- Unsupported is informational only; keep the library usable.
     task.spawn(function()
         task.wait(1)
         if splash then splash.finish() end
@@ -737,6 +728,15 @@ if not entry then
         }
     end
     table.sort(catalog, function(a, b) return a.Name < b.Name end)
+    table.insert(catalog, {
+        Id = "general-tools",
+        Name = "General Tools",
+        Icon = nil,
+        Features = { "ESP" },
+        GatedFeatures = {},
+        Supported = true,
+        IsGeneralTools = true,
+    })
     local current = {
         Id = "current-" .. tostring(game.PlaceId), PlaceId = game.PlaceId,
         Name = gameName, Icon = iconUrl, Features = {}, Supported = false,
