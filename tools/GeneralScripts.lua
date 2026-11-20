@@ -1,4 +1,5 @@
 -- ToT Nexus | Nexus UI v2
+-- NEXUS_BUILD_ID: 2026.11.20.3
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -846,24 +847,29 @@ return function(config)
         label(content, "VERSION STATUS", UDim2.fromOffset(17, 16), UDim2.new(1, -34, 0, 23), 16, TEXT, Enum.Font.GothamBold)
         label(content, "LOADER AND REMOTE BUILD COMPARISON", UDim2.fromOffset(18, 40), UDim2.new(1, -36, 0, 14), 8, CYAN, Enum.Font.GothamBold)
 
+        local componentStatuses = config.componentStatuses or {}
         local rows = {
-            {"RUNNING LOADER", tostring(config.version or "Unknown") .. " · " .. tostring(config.buildId or "Unknown")},
-            {"LATEST ON GITHUB", tostring(config.latestVersion or "Unknown") .. " · " .. tostring(config.latestBuildId or "Unknown")},
-            {"STATUS", tostring(config.versionStatus or "UNKNOWN")},
+            {"LOADER", tostring(componentStatuses.Loader or "UNKNOWN")},
+            {"LIBRARY", tostring(componentStatuses.GeneralScripts or "UNKNOWN")},
+            {"ESP TOOL", tostring(componentStatuses.AdvancedTeamESP or "NOT CHECKED")},
+            {"LATEST RELEASE", tostring(config.latestVersion or "Unknown") .. " · " .. tostring(config.latestBuildId or "Unknown")},
+            {"OVERALL STATUS", tostring(config.versionStatus or "UNKNOWN")},
         }
         for i, row in ipairs(rows) do
-            local y = 76 + (i - 1) * 58
+            local y = 76 + (i - 1) * 48
             local item = Instance.new("Frame")
             item.Position = UDim2.fromOffset(14, y)
-            item.Size = UDim2.new(1, -28, 0, 49)
+            item.Size = UDim2.new(1, -28, 0, 42)
             item.BackgroundColor3 = PANEL2
             item.BorderSizePixel = 0
             item.Parent = content
             corner(item, 9)
-            label(item, row[1], UDim2.fromOffset(11, 5), UDim2.new(1, -22, 0, 12), 7, MUTED, Enum.Font.GothamBold)
-            label(item, row[2], UDim2.fromOffset(11, 19), UDim2.new(1, -22, 0, 23), 10, row[1] == "STATUS" and (config.versionStatus == "UP TO DATE" and GREEN or RED) or TEXT, Enum.Font.GothamSemibold)
+            label(item, row[1], UDim2.fromOffset(11, 4), UDim2.new(1, -22, 0, 11), 7, MUTED, Enum.Font.GothamBold)
+            local state = row[2]
+            local stateColor = (state == "UP TO DATE" or state == "LATEST") and GREEN or ((state == "OUTDATED" or state == "MISMATCH") and RED or (state == "NOT CHECKED" or state == "UNKNOWN" or state == "PARTIAL CHECK") and MUTED or TEXT)
+            label(item, state, UDim2.fromOffset(11, 16), UDim2.new(1, -22, 0, 21), 9, stateColor, Enum.Font.GothamSemibold)
         end
-        label(content, "If the versions differ, close the current library and re-execute the latest loader. The loader checks GitHub with a cache-busting request.", UDim2.fromOffset(17, 260), UDim2.new(1, -34, 0, 54), 9, MUTED, Enum.Font.Gotham)
+        label(content, "OUTDATED means this downloaded component does not match the published build. Re-execute the latest loader to replace it. ESP is checked when it is first launched.", UDim2.fromOffset(17, 326), UDim2.new(1, -34, 0, 48), 8, MUTED, Enum.Font.Gotham)
     end
 
     versionBadge.InputBegan:Connect(function(input)
