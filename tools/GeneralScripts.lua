@@ -169,17 +169,79 @@ return function(config)
     label(card, "ToT Nexus", UDim2.fromOffset(68, 15), UDim2.new(1, -140, 0, 25), 19, TEXT, Enum.Font.GothamBold)
     label(card, "UNIVERSAL GAME HUB  /  LIBRARY", UDim2.fromOffset(69, 39), UDim2.new(1, -150, 0, 13), 8, CYAN, Enum.Font.GothamBold)
 
+    local minimized = false
+    local closeConfirm
+    local minimize = makeButton(card, "−", UDim2.new(1, -84, 0, 16), UDim2.fromOffset(30, 30), PANEL3)
+    minimize.TextSize = 22
     local close = makeButton(card, "×", UDim2.new(1, -48, 0, 16), UDim2.fromOffset(30, 30), Color3.fromRGB(48, 28, 43))
     close.TextColor3 = RED
     close.TextSize = 22
+
+    local restore = makeButton(gui, "✦  ToT Nexus  ·  OPEN", UDim2.new(0, 16, 0, 72), UDim2.fromOffset(166, 38), PANEL)
+    restore.Visible = false
+    restore.TextSize = 10
+    local restoreStroke = Instance.new("UIStroke", restore)
+    restoreStroke.Color = ACCENT
+    restoreStroke.Transparency = 0.2
+
+    minimize.MouseButton1Click:Connect(function()
+        if minimized then return end
+        minimized = true
+        card.Visible = false
+        restore.Visible = true
+        tween(shade, 0.18, {BackgroundTransparency = 1})
+    end)
+    restore.MouseButton1Click:Connect(function()
+        if not gui.Parent then return end
+        minimized = false
+        restore.Visible = false
+        shade.BackgroundTransparency = 1
+        card.Visible = true
+        tween(shade, 0.2, {BackgroundTransparency = 0.38})
+        tween(scale, 0.22, {Scale = 1}, Enum.EasingStyle.Back)
+    end)
+
+    local function showCloseConfirmation()
+        if closeConfirm then closeConfirm:Destroy() end
+        closeConfirm = Instance.new("Frame")
+        closeConfirm.Name = "CloseConfirmation"
+        closeConfirm.Size = UDim2.fromScale(1, 1)
+        closeConfirm.BackgroundColor3 = Color3.fromRGB(3, 4, 10)
+        closeConfirm.BackgroundTransparency = 0.2
+        closeConfirm.BorderSizePixel = 0
+        closeConfirm.ZIndex = 50
+        closeConfirm.Parent = gui
+        local dialog = Instance.new("Frame")
+        dialog.AnchorPoint = Vector2.new(0.5, 0.5)
+        dialog.Position = UDim2.fromScale(0.5, 0.5)
+        dialog.Size = UDim2.fromOffset(math.min(width - 36, 340), 184)
+        dialog.BackgroundColor3 = PANEL
+        dialog.BorderSizePixel = 0
+        dialog.ZIndex = 51
+        dialog.Parent = closeConfirm
+        corner(dialog, 16)
+        local outline = Instance.new("UIStroke", dialog)
+        outline.Color = RED
+        outline.Transparency = 0.25
+        label(dialog, "CLOSE LIBRARY?", UDim2.fromOffset(18, 17), UDim2.new(1, -36, 0, 24), 15, TEXT, Enum.Font.GothamBold)
+        label(dialog, "This will close ToT Nexus. You can reopen it by executing the loader again.", UDim2.fromOffset(18, 48), UDim2.new(1, -36, 0, 48), 10, MUTED, Enum.Font.Gotham)
+        local cancel = makeButton(dialog, "CANCEL", UDim2.new(0, 16, 1, -48), UDim2.new(0.5, -22, 0, 32), PANEL3)
+        cancel.ZIndex = 52
+        local confirm = makeButton(dialog, "CLOSE LIBRARY", UDim2.new(0.5, 6, 1, -48), UDim2.new(0.5, -22, 0, 32), Color3.fromRGB(112, 42, 65))
+        confirm.ZIndex = 52
+        cancel.MouseButton1Click:Connect(function()
+            if closeConfirm then closeConfirm:Destroy(); closeConfirm = nil end
+        end)
+        confirm.MouseButton1Click:Connect(function()
+            tween(scale, 0.18, {Scale = 0.95}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+            tween(shade, 0.18, {BackgroundTransparency = 1})
+            task.wait(0.19)
+            if gui and gui.Parent then gui:Destroy() end
+        end)
+    end
     close.MouseEnter:Connect(function() tween(close, 0.16, {BackgroundColor3 = Color3.fromRGB(76, 35, 52)}) end)
     close.MouseLeave:Connect(function() tween(close, 0.16, {BackgroundColor3 = Color3.fromRGB(48, 28, 43)}) end)
-    close.MouseButton1Click:Connect(function()
-        tween(scale, 0.18, {Scale = 0.95}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        tween(shade, 0.18, {BackgroundTransparency = 1})
-        task.wait(0.19)
-        gui:Destroy()
-    end)
+    close.MouseButton1Click:Connect(showCloseConfirmation)
 
     local divider = Instance.new("Frame")
     divider.Position = UDim2.fromOffset(20, 65)
@@ -337,7 +399,7 @@ return function(config)
         Macro = "Automated action chains",
         Premium = "Premium features",
         Webhook = "Webhook alerts",
-        ESP = "Highlight developer test targets",
+        ESP = "Player ESP with team and visibility colors",
     }
 
     local activeEsp = {enabled = false, highlights = {}, connections = {}}
@@ -455,7 +517,7 @@ return function(config)
             local toolCard = Instance.new("TextButton")
             toolCard.Name = "Tool_ESP"
             toolCard.Position = UDim2.fromOffset(14, 99)
-            toolCard.Size = UDim2.new(1, -28, 0, 76)
+            toolCard.Size = UDim2.new(1, -28, 0, 86)
             toolCard.BackgroundColor3 = PANEL2
             toolCard.BorderSizePixel = 0
             toolCard.Text = ""
@@ -468,16 +530,49 @@ return function(config)
 
             local toolIcon = Instance.new("Frame")
             toolIcon.Position = UDim2.fromOffset(11, 11)
-            toolIcon.Size = UDim2.fromOffset(52, 52)
-            toolIcon.BackgroundColor3 = Color3.fromRGB(48, 39, 87)
+            toolIcon.Size = UDim2.fromOffset(64, 64)
+            toolIcon.BackgroundColor3 = Color3.fromRGB(27, 31, 57)
             toolIcon.BorderSizePixel = 0
+            toolIcon.ClipsDescendants = true
             toolIcon.Parent = toolCard
             corner(toolIcon, 12)
-            label(toolIcon, "◎", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 27, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+            local art = Instance.new("UIGradient")
+            art.Color = ColorSequence.new(Color3.fromRGB(67, 45, 133), Color3.fromRGB(17, 112, 139))
+            art.Rotation = 38
+            art.Parent = toolIcon
+            for i, diameter in ipairs({48, 34, 20}) do
+                local radarRing = Instance.new("Frame")
+                radarRing.AnchorPoint = Vector2.new(0.5, 0.5)
+                radarRing.Position = UDim2.fromScale(0.5, 0.5)
+                radarRing.Size = UDim2.fromOffset(diameter, diameter)
+                radarRing.BackgroundTransparency = 1
+                radarRing.Parent = toolIcon
+                corner(radarRing, 100)
+                local rs = Instance.new("UIStroke", radarRing)
+                rs.Color = i == 1 and CYAN or Color3.fromRGB(220, 225, 255)
+                rs.Thickness = 1.2
+                rs.Transparency = 0.22 + i * 0.12
+            end
+            local radarSweep = Instance.new("Frame")
+            radarSweep.AnchorPoint = Vector2.new(0, 1)
+            radarSweep.Position = UDim2.fromScale(0.5, 0.5)
+            radarSweep.Size = UDim2.fromOffset(2, 23)
+            radarSweep.BackgroundColor3 = CYAN
+            radarSweep.BorderSizePixel = 0
+            radarSweep.Parent = toolIcon
+            tween(radarSweep, 2.8, {Rotation = 360}, Enum.EasingStyle.Linear)
+            local targetDot = Instance.new("Frame")
+            targetDot.AnchorPoint = Vector2.new(0.5, 0.5)
+            targetDot.Position = UDim2.new(0.68, 0, 0.32, 0)
+            targetDot.Size = UDim2.fromOffset(6, 6)
+            targetDot.BackgroundColor3 = Color3.fromRGB(255, 105, 128)
+            targetDot.BorderSizePixel = 0
+            targetDot.Parent = toolIcon
+            corner(targetDot, 6)
 
-            label(toolCard, "ESP", UDim2.fromOffset(75, 14), UDim2.new(1, -112, 0, 20), 12, TEXT, Enum.Font.GothamBold)
-            label(toolCard, "Highlight test targets", UDim2.fromOffset(75, 37), UDim2.new(1, -112, 0, 17), 8, MUTED, Enum.Font.Gotham)
-            label(toolCard, "›", UDim2.new(1, -33, 0, 0), UDim2.fromOffset(22, 76), 25, CYAN, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+            label(toolCard, "ADVANCED TEAM ESP", UDim2.fromOffset(87, 14), UDim2.new(1, -124, 0, 20), 11, TEXT, Enum.Font.GothamBold)
+            label(toolCard, "Player outlines · team colors · visibility", UDim2.fromOffset(87, 37), UDim2.new(1, -124, 0, 17), 7, MUTED, Enum.Font.Gotham)
+            label(toolCard, "›", UDim2.new(1, -33, 0, 0), UDim2.fromOffset(22, 86), 25, CYAN, Enum.Font.Gotham, Enum.TextXAlignment.Center)
 
             toolCard.MouseEnter:Connect(function()
                 tween(toolCard, 0.15, {BackgroundColor3 = PANEL3})
@@ -501,19 +596,44 @@ return function(config)
                 local iconBox = Instance.new("Frame")
                 iconBox.AnchorPoint = Vector2.new(0.5, 0)
                 iconBox.Position = UDim2.new(0.5, 0, 0, compact and 16 or 21)
-                iconBox.Size = UDim2.fromOffset(compact and 64 or 76, compact and 64 or 76)
-                iconBox.BackgroundColor3 = Color3.fromRGB(48, 39, 87)
+                iconBox.Size = UDim2.fromOffset(compact and 70 or 84, compact and 70 or 84)
+                iconBox.BackgroundColor3 = Color3.fromRGB(27, 31, 57)
                 iconBox.BorderSizePixel = 0
+                iconBox.ClipsDescendants = true
                 iconBox.Parent = detailContent
-                corner(iconBox, 17)
+                corner(iconBox, 18)
+                local detailArt = Instance.new("UIGradient")
+                detailArt.Color = ColorSequence.new(Color3.fromRGB(77, 48, 154), Color3.fromRGB(20, 132, 157))
+                detailArt.Rotation = 38
+                detailArt.Parent = iconBox
+                for i, diameter in ipairs({64, 46, 28}) do
+                    local rr = Instance.new("Frame")
+                    rr.AnchorPoint = Vector2.new(0.5, 0.5)
+                    rr.Position = UDim2.fromScale(0.5, 0.5)
+                    rr.Size = UDim2.fromOffset(diameter, diameter)
+                    rr.BackgroundTransparency = 1
+                    rr.Parent = iconBox
+                    corner(rr, 100)
+                    local rs = Instance.new("UIStroke", rr)
+                    rs.Color = i == 1 and CYAN or TEXT
+                    rs.Thickness = 1.4
+                    rs.Transparency = 0.25 + i * 0.12
+                end
+                local centerDot = Instance.new("Frame")
+                centerDot.AnchorPoint = Vector2.new(0.5, 0.5)
+                centerDot.Position = UDim2.fromScale(0.5, 0.5)
+                centerDot.Size = UDim2.fromOffset(7, 7)
+                centerDot.BackgroundColor3 = CYAN
+                centerDot.BorderSizePixel = 0
+                centerDot.Parent = iconBox
+                corner(centerDot, 7)
                 local iconStroke = Instance.new("UIStroke", iconBox)
                 iconStroke.Color = CYAN
                 iconStroke.Transparency = 0.35
-                label(iconBox, "◎", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 36, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
 
-                local titleY = (compact and 16 or 21) + (compact and 64 or 76) + 8
+                local titleY = (compact and 16 or 21) + (compact and 70 or 84) + 8
                 label(detailContent, "ESP", UDim2.new(0, 12, 0, titleY), UDim2.new(1, -24, 0, 24), 17, TEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-                label(detailContent, "DEVELOPER VISUALIZATION TOOL", UDim2.new(0, 12, 0, titleY + 24), UDim2.new(1, -24, 0, 14), 8, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+                label(detailContent, "PLAYER TRACKING & TEAM VISUALIZATION", UDim2.new(0, 12, 0, titleY + 24), UDim2.new(1, -24, 0, 14), 8, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
                 label(detailContent, "FEATURES", UDim2.fromOffset(16, titleY + 51), UDim2.new(1, -32, 0, 13), 8, MUTED, Enum.Font.GothamBold)
 
                 local featureWrap = Instance.new("Frame")
@@ -521,7 +641,7 @@ return function(config)
                 featureWrap.Size = UDim2.new(1, -26, 0, math.max(48, height - (top + bottom) - titleY - 69 - 104))
                 featureWrap.BackgroundTransparency = 1
                 featureWrap.Parent = detailContent
-                addFeatureList(featureWrap, {"Highlight test targets", "Live target updates", "Toggleable outlines"}, false)
+                addFeatureList(featureWrap, {"Blue teammate outlines", "Green visible enemies", "Red occluded enemies", "Live player tracking", "Mobile draggable controls"}, false)
 
                 statusLabel = label(detailContent, activeEsp.enabled and "ESP is active" or "Ready to enable", UDim2.new(0, 14, 1, -62), UDim2.new(1, -28, 0, 14), 8, activeEsp.enabled and GREEN or MUTED, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
                 executeButton = makeButton(detailContent, "▶   OPEN ESP PANEL", UDim2.new(0, 13, 1, -42), UDim2.new(1, -26, 0, 36), ACCENT_DARK)
@@ -546,7 +666,7 @@ return function(config)
                         local ok, err = pcall(config.onExecuteTool, "ESP")
                         if executeButton and executeButton.Parent then
                             executeButton.Active = true
-                            executeButton.Text = "▶   EXECUTE"
+                            executeButton.Text = "▶   LAUNCH ESP"
                             statusLabel.Text = ok and "ESP UI launched" or ("Launch failed: " .. tostring(err))
                             statusLabel.TextColor3 = ok and GREEN or RED
                         end
