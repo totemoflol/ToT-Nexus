@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.20.8
+-- NEXUS_BUILD_ID: 2026.11.20.9
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -697,7 +697,7 @@ return function(config)
                 featureWrap.Size = UDim2.new(1, -26, 0, math.max(48, height - (top + bottom) - titleY - 69 - 104))
                 featureWrap.BackgroundTransparency = 1
                 featureWrap.Parent = detailContent
-                addFeatureList(featureWrap, {"Blue teammate outlines", "Red enemy outlines", "Event-driven player tracking", "Mobile touch controls"}, false)
+                addFeatureList(featureWrap, {"Blue teammate surface markers", "Green/red visibility samples on the same body part", "Adaptive screen-space Drawing renderer", "Bounded raycasts and target sampling", "Mobile touch controls"}, false)
 
                 statusLabel = label(detailContent, activeEsp.enabled and "ESP is active" or "Ready to enable", UDim2.new(0, 14, 1, -62), UDim2.new(1, -28, 0, 14), 8, activeEsp.enabled and GREEN or MUTED, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
                 executeButton = makeButton(detailContent, "▶   OPEN ESP PANEL", UDim2.new(0, 13, 1, -42), UDim2.new(1, -26, 0, 36), ACCENT_DARK)
@@ -716,7 +716,7 @@ return function(config)
                     end
                     executeButton.Active = false
                     executeButton.Text = "LAUNCHING ESP..."
-                    statusLabel.Text = "Starting Advanced Team ESP V3..."
+                    statusLabel.Text = "Starting Advanced Team ESP V4..."
                     statusLabel.TextColor3 = CYAN
                     task.spawn(function()
                         local ok, err = pcall(config.onExecuteTool, "ESP")
@@ -906,6 +906,7 @@ return function(config)
         layout.Parent = log
 
         local entries = {
+            {date = "20 NOV 2026 · CUSTOM ESP RENDERER", title = "Pixel-style sampled visibility overlay", body = "Replaced per-limb Highlights with executor Drawing circles sampled across camera-facing body-part surfaces. Each sample is raycast independently, so visible green and blocked red points can coexist on the same torso or head. Sampling is capped to 6 targets, 8 parts per target and a 4×4 grid per part.", affected = "Affects: Advanced Team ESP; requires executor Drawing API. Sampling is an approximation, not a true GPU pixel shader."},
             {date = "20 NOV 2026 · ESP VISIBILITY", title = "Team refresh and partial visibility", body = "Teams refresh every 7 seconds and on team property changes. Enemy body parts blend individually between green (visible) and red (hidden).", affected = "Affects: Advanced Team ESP; per-limb visibility approximation, capped highlights and raycasts."},
             {date = "20 NOV 2026 · ESP + UI HOTFIX", title = "Restored visibility checks and fixed dragging", body = "Enemy visibility now uses bounded raycasts that can pass through a few transparent or glass blockers. Both windows now capture mouse and touch movement globally.", affected = "Affects: Advanced Team ESP line-of-sight colors, mobile/desktop dragging, and performance safeguards."},
             {date = "20 NOV 2026 · ESP STABILITY", title = "Removed expensive ESP work", body = "Removed world raycasts, transparent-object scans and the recurring refresh loop. Player and character events now drive updates.", affected = "Affects: Advanced Team ESP performance. Enemy visibility colors are temporarily replaced with simple team-based colors."},
