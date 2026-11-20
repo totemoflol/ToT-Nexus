@@ -11,8 +11,8 @@ local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 
-local VERSION = "3.11"
-local BUILD_ID = "2026.11.20.2"
+local VERSION = "3.12"
+local BUILD_ID = "2026.11.20.3"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
@@ -31,16 +31,42 @@ local function fetchLatestVersion()
 end
 
 local remoteVersion = fetchLatestVersion()
+local componentStatuses = {
+    Loader = "UNKNOWN",
+    GeneralScripts = "UNKNOWN",
+    AdvancedTeamESP = "NOT CHECKED",
+}
 local versionStatus = "UNKNOWN"
-if remoteVersion and remoteVersion.version then
-    if tostring(remoteVersion.version) == VERSION and tostring(remoteVersion.build) == BUILD_ID then
-        versionStatus = "UP TO DATE"
-    else
-        versionStatus = "UPDATE AVAILABLE"
-        warn("[ToT Nexus] Version mismatch. Running " .. VERSION .. " (" .. BUILD_ID .. "), latest is " .. tostring(remoteVersion.version) .. " (" .. tostring(remoteVersion.build) .. "). Re-execute the latest loader.")
+local function compareBuild(component, localBuild)
+    local expected = remoteVersion and remoteVersion.components and remoteVersion.components[component]
+    if not expected or not localBuild then return "UNKNOWN" end
+    return tostring(expected) == tostring(localBuild) and "UP TO DATE" or "OUTDATED"
+end
+componentStatuses.Loader = compareBuild("Loader", BUILD_ID)
+if componentStatuses.Loader == "OUTDATED" then
+    warn("[ToT Nexus] Loader is outdated. Running " .. BUILD_ID .. "; latest is " .. tostring(remoteVersion.components.Loader) .. ". Re-execute the latest loader.")
+end
+local function refreshOverallVersionStatus()
+    local statuses = {componentStatuses.Loader, componentStatuses.GeneralScripts, componentStatuses.AdvancedTeamESP}
+    local hasOutdated, hasUnknown = false, false
+    for _, status in ipairs(statuses) do
+        if status == "OUTDATED" then hasOutdated = true end
+        if status == "UNKNOWN" or status == "NOT CHECKED" then hasUnknown = true end
     end
-else
+    versionStatus = hasOutdated and "OUTDATED" or (hasUnknown and "PARTIAL CHECK" or "UP TO DATE")
+end
+refreshOverallVersionStatus()
+if not remoteVersion then
     warn("[ToT Nexus] Could not verify latest version; check HttpGet access or try again.")
+end
+local function inspectComponentSource(component, source)
+    local build = type(source) == "string" and string.match(source, "%-%- NEXUS_BUILD_ID:%s*([%w%._%-]+)")
+    componentStatuses[component] = compareBuild(component, build)
+    refreshOverallVersionStatus()
+    if componentStatuses[component] == "OUTDATED" then
+        warn("[ToT Nexus] " .. component .. " is outdated. Loaded build " .. tostring(build) .. "; latest is " .. tostring(remoteVersion.components[component]) .. ".")
+    end
+    return build
 end
 
 -- Per-script lifecycle registry. Re-running a uniqid cleans up its previous instance;
@@ -140,6 +166,7 @@ local function executeGeneralTool(toolName)
     if toolName ~= "ESP" then error("Unknown General Tool: " .. tostring(toolName)) end
     local source = game:HttpGet(cacheBusted(BASE .. "/tools/AdvancedTeamESP.lua"))
     assert(type(source) == "string" and #source > 1000, "ESP tool source is empty or unavailable")
+    inspectComponentSource("AdvancedTeamESP", source)
     local fn, compileErr = loadstring(source)
     assert(fn, "ESP compile error: " .. tostring(compileErr))
     return fn()
@@ -810,6 +837,8 @@ if not entry then
     end)
     local libraryMounted = false
     if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
+        inspectComponentSource("GeneralScripts", librarySource)
+        refreshOverallVersionStatus()
         local okRun, runErr = pcall(function()
             local libraryFactory = loadstring(librarySource)
             assert(type(libraryFactory) == "function", "Library source did not compile")
@@ -848,6 +877,7 @@ if not entry then
             latestVersion = remoteVersion and tostring(remoteVersion.version) or "Unknown",
             latestBuildId = remoteVersion and tostring(remoteVersion.build) or "Unknown",
             versionStatus = versionStatus,
+            componentStatuses = componentStatuses,
             })
             libraryMounted = true
         end)
@@ -1075,12 +1105,20 @@ local okLibrary, librarySource = pcall(function()
     return game:HttpGet(BASE .. "/tools/GeneralScripts.lua")
 end)
 if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
+    inspectComponentSource("GeneralScripts", librarySource)
+    refreshOverallVersionStatus()
     local okRun, runErr = pcall(function()
         loadstring(librarySource)({
             games = catalog,
             currentGameId = currentGame.Id,
             onExecute = executeSelectedGame,
             onExecuteTool = executeGeneralTool,
+            version = VERSION,
+            buildId = BUILD_ID,
+            latestVersion = remoteVersion and tostring(remoteVersion.version) or "Unknown",
+            latestBuildId = remoteVersion and tostring(remoteVersion.build) or "Unknown",
+            versionStatus = versionStatus,
+            componentStatuses = componentStatuses,
         })
     end)
     if not okRun then
