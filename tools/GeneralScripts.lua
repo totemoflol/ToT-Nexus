@@ -59,6 +59,7 @@ return function(config)
     card.BackgroundColor3 = BG
     card.BorderSizePixel = 0
     card.ClipsDescendants = true
+    card.Active = true
     card.Parent = gui
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
     local border = Instance.new("UIStroke", card)
