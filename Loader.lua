@@ -11,9 +11,37 @@ local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 
-local VERSION = "3.10"
+local VERSION = "3.11"
+local BUILD_ID = "2026.11.20.2"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
+
+local function cacheBusted(url)
+    return url .. (string.find(url, "?", 1, true) and "&" or "?") .. "_nexus=" .. tostring(os.time()) .. tostring(math.random(1000, 9999))
+end
+
+local function fetchLatestVersion()
+    local ok, body = pcall(function()
+        return game:HttpGet(cacheBusted(BASE .. "/version.json"))
+    end)
+    if not ok or type(body) ~= "string" then return nil end
+    local decodedOk, data = pcall(function() return HttpService:JSONDecode(body) end)
+    if decodedOk and type(data) == "table" then return data end
+    return nil
+end
+
+local remoteVersion = fetchLatestVersion()
+local versionStatus = "UNKNOWN"
+if remoteVersion and remoteVersion.version then
+    if tostring(remoteVersion.version) == VERSION and tostring(remoteVersion.build) == BUILD_ID then
+        versionStatus = "UP TO DATE"
+    else
+        versionStatus = "UPDATE AVAILABLE"
+        warn("[ToT Nexus] Version mismatch. Running " .. VERSION .. " (" .. BUILD_ID .. "), latest is " .. tostring(remoteVersion.version) .. " (" .. tostring(remoteVersion.build) .. "). Re-execute the latest loader.")
+    end
+else
+    warn("[ToT Nexus] Could not verify latest version; check HttpGet access or try again.")
+end
 
 -- Per-script lifecycle registry. Re-running a uniqid cleans up its previous instance;
 -- different uniqids remain independent and may run at the same time.
@@ -110,7 +138,7 @@ local function fetchGameIcon(placeId)
 end
 local function executeGeneralTool(toolName)
     if toolName ~= "ESP" then error("Unknown General Tool: " .. tostring(toolName)) end
-    local source = game:HttpGet(BASE .. "/tools/AdvancedTeamESP.lua")
+    local source = game:HttpGet(cacheBusted(BASE .. "/tools/AdvancedTeamESP.lua"))
     assert(type(source) == "string" and #source > 1000, "ESP tool source is empty or unavailable")
     local fn, compileErr = loadstring(source)
     assert(fn, "ESP compile error: " .. tostring(compileErr))
@@ -778,7 +806,7 @@ if not entry then
     table.insert(catalog, 1, current)
 
     local okLibrary, librarySource = pcall(function()
-        return game:HttpGet(BASE .. "/tools/GeneralScripts.lua")
+        return game:HttpGet(cacheBusted(BASE .. "/tools/GeneralScripts.lua"))
     end)
     local libraryMounted = false
     if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
@@ -815,6 +843,11 @@ if not entry then
                     if not ran then warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(err)) end
                 end,
                 onExecuteTool = executeGeneralTool,
+            version = VERSION,
+            buildId = BUILD_ID,
+            latestVersion = remoteVersion and tostring(remoteVersion.version) or "Unknown",
+            latestBuildId = remoteVersion and tostring(remoteVersion.build) or "Unknown",
+            versionStatus = versionStatus,
             })
             libraryMounted = true
         end)
