@@ -74,6 +74,9 @@ local function clearPlayer(player)
     local h = highlights[player]
     if h then
         if h.instance then pcall(function() h.instance:Destroy() end) end
+        for _, patch in ipairs(h.surfaces or {}) do
+            pcall(function() patch:Destroy() end)
+        end
         highlights[player] = nil
     end
 end
