@@ -1,11 +1,11 @@
 {
-  "version": "3.12",
-  "build": "2026.11.20.4",
+  "version": "3.13",
+  "build": "2026.11.20.5",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.4",
-    "GeneralScripts": "2026.11.20.4",
-    "AdvancedTeamESP": "2026.11.20.4"
+    "Loader": "2026.11.20.5",
+    "GeneralScripts": "2026.11.20.5",
+    "AdvancedTeamESP": "2026.11.20.5"
   },
-  "notes": "Per-component build verification; detects stale cached scripts and mixed releases."
+  "notes": "Restores throttled enemy visibility raycasts and fixes dedicated touch/mouse drag handles for both library and ESP windows."
 }
