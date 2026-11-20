@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "games": [
+    {
+      "id": "idle-potato-game",
+      "name": "Idle Potato Game",
+      "placeId": 122079988266644,
+      "universeId": 9655897254,
+      "icon": {
+        "provider": "Roblox Thumbnails API",
+        "url": "https://thumbnails.roblox.com/v1/games/icons?universeIds=9655897254&size=512x512&format=Png&isCircular=false",
+        "size": "512x512"
+      },
+      "thumbnail": {
+        "provider": "Roblox CDN",
+        "url": "https://tr.rbxcdn.com/180DAY-60f7bf0e988d6f8cf1d5dd6971e0c6ca/500/280/Image/Jpeg/noFilter",
+        "size": "500x280"
+      }
+    }
+  ]
+}
