@@ -838,7 +838,7 @@ return function(config)
             if child ~= detailStroke and child ~= content then child:Destroy() end
         end
         label(content, "VERSION STATUS", UDim2.fromOffset(17, 16), UDim2.new(1, -34, 0, 23), 16, TEXT, Enum.Font.GothamBold)
-        label(content, "LOADER AND REMOTE BUILD COMPARISON", UDim2.fromOffset(18, 40), UDim2.new(1, -36, 0, 14), 8, CYAN, Enum.Font.GothamBold)
+        label(content, "LOADER AND INTEGRATED LIBRARY BUILD", UDim2.fromOffset(18, 40), UDim2.new(1, -36, 0, 14), 8, CYAN, Enum.Font.GothamBold)
 
         local componentStatuses = config.componentStatuses or {}
         local currentStatus = (config.versionState and config.versionState.status) or config.versionStatus or "UNKNOWN"
@@ -847,7 +847,7 @@ return function(config)
         local rows = {
             {"LOADER", tostring(componentStatuses.Loader or "UNKNOWN")},
             {"LIBRARY", tostring(componentStatuses.GeneralScripts or "UNKNOWN")},
-            {"ESP TOOL", tostring(componentStatuses.AdvancedTeamESP or "NOT CHECKED")},
+            {"ESP MODULE", "INTEGRATED"},
             {"LATEST RELEASE", tostring(config.latestVersion or "Unknown") .. " · " .. tostring(config.latestBuildId or "Unknown")},
             {"OVERALL STATUS", tostring(currentStatus)},
         }
@@ -865,7 +865,7 @@ return function(config)
             local stateColor = (state == "UP TO DATE" or state == "LATEST") and GREEN or ((state == "OUTDATED" or state == "MISMATCH") and RED or (state == "NOT CHECKED" or state == "UNKNOWN" or state == "PARTIAL CHECK") and MUTED or TEXT)
             label(item, state, UDim2.fromOffset(11, 16), UDim2.new(1, -22, 0, 21), 9, stateColor, Enum.Font.GothamSemibold)
         end
-        label(content, "OUTDATED means this downloaded component does not match the published build. Re-execute the latest loader to replace it. ESP is checked when it is first launched.", UDim2.fromOffset(17, 326), UDim2.new(1, -34, 0, 48), 8, MUTED, Enum.Font.Gotham)
+        label(content, "OUTDATED means this downloaded component does not match the published build. Re-execute the latest loader to replace it. ESP now runs directly inside the General Tools library.", UDim2.fromOffset(17, 326), UDim2.new(1, -34, 0, 48), 8, MUTED, Enum.Font.Gotham)
     end
 
     versionBadge.InputBegan:Connect(function(input)
