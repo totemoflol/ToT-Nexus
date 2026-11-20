@@ -249,15 +249,52 @@ return function(config)
         stroke.Color = Color3.fromRGB(48, 54, 78)
         stroke.Transparency = 0.48
 
-        local image = Instance.new("ImageLabel")
-        image.Position = UDim2.fromOffset(7, 7)
-        image.Size = UDim2.fromOffset(compact and 42 or 48, compact and 42 or 48)
-        image.BackgroundColor3 = PANEL2
-        image.BorderSizePixel = 0
-        image.Image = gameInfo.Icon or ""
-        image.ScaleType = Enum.ScaleType.Crop
-        image.Parent = row
-        corner(image, 9)
+        local image
+        if gameInfo.IsGeneralTools then
+            -- Custom Nexus utility badge: intentionally designed in UI, no remote image required.
+            image = Instance.new("Frame")
+            image.Position = UDim2.fromOffset(7, 7)
+            image.Size = UDim2.fromOffset(compact and 42 or 48, compact and 42 or 48)
+            image.BackgroundColor3 = Color3.fromRGB(37, 30, 70)
+            image.BorderSizePixel = 0
+            image.Parent = row
+            corner(image, 9)
+            local artGradient = Instance.new("UIGradient")
+            artGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(112, 76, 220)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 160, 190)),
+            })
+            artGradient.Rotation = 35
+            artGradient.Parent = image
+            local ring = Instance.new("Frame")
+            ring.AnchorPoint = Vector2.new(0.5, 0.5)
+            ring.Position = UDim2.fromScale(0.5, 0.5)
+            ring.Size = UDim2.fromScale(0.67, 0.67)
+            ring.BackgroundTransparency = 1
+            ring.Parent = image
+            corner(ring, 100)
+            local ringStroke = Instance.new("UIStroke")
+            ringStroke.Color = Color3.fromRGB(225, 220, 255)
+            ringStroke.Thickness = 1.5
+            ringStroke.Transparency = 0.18
+            ringStroke.Parent = ring
+            label(image, "✦", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), compact and 21 or 25, TEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+        else
+            image = Instance.new("ImageLabel")
+            image.Position = UDim2.fromOffset(7, 7)
+            image.Size = UDim2.fromOffset(compact and 42 or 48, compact and 42 or 48)
+            image.BackgroundColor3 = PANEL2
+            image.BorderSizePixel = 0
+            image.Image = gameInfo.Icon or ""
+            image.ScaleType = Enum.ScaleType.Crop
+            image.Parent = row
+            corner(image, 9)
+            image.ImageTransparency = 0
+            image.Visible = true
+            image:GetPropertyChangedSignal("Image"):Connect(function()
+                if image.Image == "" then image.Image = gameInfo.Icon or "" end
+            end)
+        end
 
         local textX = compact and 55 or 62
         local name = label(row, gameInfo.Name, UDim2.fromOffset(textX, 8), UDim2.new(1, -textX - 6, 0, 20), compact and 9 or 11, TEXT, Enum.Font.GothamSemibold)
