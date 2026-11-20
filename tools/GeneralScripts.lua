@@ -1,8 +1,11 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.20.12
+-- NEXUS_BUILD_ID: 2026.11.20.13
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
 local ACCENT = Color3.fromRGB(139, 102, 255)
 local ACCENT_DARK = Color3.fromRGB(83, 63, 176)
 local CYAN = Color3.fromRGB(70, 224, 255)
@@ -458,34 +461,88 @@ return function(config)
         ESP = "Player ESP with team and visibility colors",
     }
 
-    local activeEsp = {enabled = false, highlights = {}, connections = {}}
+    local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=10,generation=0}
+    local EC={Ally=Color3.fromRGB(75,165,255),Visible=Color3.fromRGB(91,231,151),Hidden=Color3.fromRGB(255,82,105)}
+    local function updateEspUI()
+        local on=activeEsp.enabled
+        if activeEsp.statusDot and activeEsp.statusDot.Parent then activeEsp.statusDot.BackgroundColor3=on and GREEN or RED end
+        if activeEsp.statusText and activeEsp.statusText.Parent then activeEsp.statusText.Text=on and "ACTIVE" or "OFF"; activeEsp.statusText.TextColor3=on and GREEN or MUTED end
+        if activeEsp.detailStatus and activeEsp.detailStatus.Parent then activeEsp.detailStatus.Text=on and "ESP IS ACTIVE · TRACKING PLAYERS" or "ESP IS OFF · READY TO ENABLE"; activeEsp.detailStatus.TextColor3=on and GREEN or MUTED end
+        if activeEsp.toggleButton and activeEsp.toggleButton.Parent then activeEsp.toggleButton.Text=on and "■   DISABLE ESP" or "▶   ENABLE ESP"; activeEsp.toggleButton.BackgroundColor3=on and Color3.fromRGB(55,43,83) or ACCENT_DARK end
+    end
+    local function ec(signal,fn,bucket) local c=signal:Connect(fn); table.insert(bucket or activeEsp.connections,c); return c end
+    local function ally(p) if p==LocalPlayer then return true end; if LocalPlayer.Team and p.Team then return LocalPlayer.Team==p.Team end; if LocalPlayer.TeamColor and p.TeamColor then return LocalPlayer.TeamColor==p.TeamColor end; return false end
+    local function clearPlayer(p) local r=activeEsp.highlights[p]; if not r then return end; for _,i in ipairs(r.items) do if i.highlight then pcall(function() i.highlight:Destroy() end) end end; activeEsp.highlights[p]=nil end
+    local function colorPart(i,c) if i.highlight and i.highlight.Parent and i.color~=c then i.color=c; i.highlight.FillColor=c; i.highlight.OutlineColor=c end end
+    local function applyPlayer(p)
+        if not activeEsp.enabled or p==LocalPlayer then return end
+        local char=p.Character; if not char or not char.Parent then clearPlayer(p); return end
+        local hum=char:FindFirstChildOfClass("Humanoid"); if not hum or hum.Health<=0 then clearPlayer(p); return end
+        local r=activeEsp.highlights[p]; if not r or r.character~=char then clearPlayer(p); r={character=char,items={}}; activeEsp.highlights[p]=r end
+        local known={}; for _,i in ipairs(r.items) do known[i.part]=true end
+        for _,part in ipairs(char:GetChildren()) do
+            if #r.items>=12 then break end
+            if part:IsA("BasePart") and part.Name~="HumanoidRootPart" and part.Transparency<0.95 and not part:FindFirstAncestorOfClass("Accessory") and not known[part] then
+                local h=Instance.new("Highlight"); h.Name="ToTNexus_LimbESP"; h.Adornee=part; h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop; h.FillTransparency=0.72; h.OutlineTransparency=0.05
+                local c=ally(p) and EC.Ally or EC.Hidden; h.FillColor=c; h.OutlineColor=c; h.Parent=part; table.insert(r.items,{part=part,highlight=h,color=c})
+            end
+        end
+    end
+    local function rayVisible(origin,point,char,params,excluded)
+        local dir=point-origin
+        for n=1,4 do
+            params.FilterDescendantsInstances=excluded; local hit=workspace:Raycast(origin,dir,params)
+            if not hit or hit.Instance:IsDescendantOf(char) then return true end
+            local b=hit.Instance
+            if n<4 and b:IsA("BasePart") and (b.Transparency>=0.55 or b.Material==Enum.Material.Glass) then table.insert(excluded,b) else return false end
+        end
+        return false
+    end
+    local function canSee(origin,part,char,params,excluded)
+        if rayVisible(origin,part.Position,char,params,table.clone(excluded)) then return true end
+        local p=part.CFrame:PointToObjectSpace(origin); local ax,ay,az=math.abs(p.X),math.abs(p.Y),math.abs(p.Z)
+        local u,v,n,sg,hu,hv,hn
+        if ax>=ay and ax>=az then n,sg="X",p.X>=0 and 1 or -1; u,v="Y","Z"; hn,hu,hv=part.Size.X/2,part.Size.Y/2,part.Size.Z/2
+        elseif ay>=ax and ay>=az then n,sg="Y",p.Y>=0 and 1 or -1; u,v="X","Z"; hn,hu,hv=part.Size.Y/2,part.Size.X/2,part.Size.Z/2
+        else n,sg="Z",p.Z>=0 and 1 or -1; u,v="X","Y"; hn,hu,hv=part.Size.Z/2,part.Size.X/2,part.Size.Y/2 end
+        for _,o in ipairs({{0.62,0},{-0.62,0},{0,0.62},{0,-0.62}}) do local c={X=0,Y=0,Z=0}; c[n]=sg*hn*0.96; c[u]=o[1]*hu; c[v]=o[2]*hv; local w=part.CFrame:PointToWorldSpace(Vector3.new(c.X,c.Y,c.Z)); if rayVisible(origin,w,char,params,table.clone(excluded)) then return true end end
+        return false
+    end
+    local function visibility(p)
+        local r=activeEsp.highlights[p]; if not activeEsp.enabled or p==LocalPlayer or not r or not r.character or not r.character.Parent then return end
+        if ally(p) then for _,i in ipairs(r.items) do colorPart(i,EC.Ally) end; return end
+        local cam=workspace.CurrentCamera; if not cam then return end
+        local origin=cam.CFrame.Position; local params=RaycastParams.new(); params.FilterType=Enum.RaycastFilterType.Exclude; params.IgnoreWater=true
+        for _,i in ipairs(r.items) do if i.part.Parent and i.highlight.Parent then local ex=LocalPlayer.Character and {LocalPlayer.Character} or {}; colorPart(i,canSee(origin,i.part,r.character,params,ex) and EC.Visible or EC.Hidden) end end
+    end
+    local function refresh() for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then applyPlayer(p) end end end
+    local function untrack(p) clearPlayer(p); for _,c in ipairs(activeEsp.playerConnections[p] or {}) do pcall(function() c:Disconnect() end) end; activeEsp.playerConnections[p]=nil end
+    local function track(p)
+        if p==LocalPlayer or activeEsp.playerConnections[p] then return end
+        local bucket={}; activeEsp.playerConnections[p]=bucket
+        ec(p.CharacterAdded,function() task.wait(0.35); if activeEsp.enabled then applyPlayer(p) end end,bucket)
+        ec(p.CharacterRemoving,function() clearPlayer(p) end,bucket)
+        ec(p:GetPropertyChangedSignal("Team"),function() if activeEsp.enabled then applyPlayer(p) end end,bucket)
+        ec(p:GetPropertyChangedSignal("TeamColor"),function() if activeEsp.enabled then applyPlayer(p) end end,bucket)
+        if p.Character and activeEsp.enabled then applyPlayer(p) end
+    end
     local function stopEsp()
-        for _, connection in ipairs(activeEsp.connections) do
-            pcall(function() connection:Disconnect() end)
-        end
-        table.clear(activeEsp.connections)
-        for _, highlight in pairs(activeEsp.highlights) do
-            if highlight and highlight.Parent then highlight:Destroy() end
-        end
-        table.clear(activeEsp.highlights)
-        activeEsp.enabled = false
+        activeEsp.enabled=false; activeEsp.generation=activeEsp.generation+1
+        for _,c in ipairs(activeEsp.connections) do pcall(function() c:Disconnect() end) end; table.clear(activeEsp.connections)
+        for p in pairs(activeEsp.playerConnections) do untrack(p) end
+        for p in pairs(activeEsp.highlights) do clearPlayer(p) end; updateEspUI()
     end
-
-    local function addEspTarget(target)
-        if not activeEsp.enabled or not target then return end
-        if not (target:IsA("Model") or target:IsA("BasePart")) then return end
-        if activeEsp.highlights[target] and activeEsp.highlights[target].Parent then return end
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "ToTNexusTestHighlight"
-        highlight.Adornee = target
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.FillColor = ACCENT
-        highlight.OutlineColor = CYAN
-        highlight.FillTransparency = 0.78
-        highlight.OutlineTransparency = 0.05
-        highlight.Parent = target
-        activeEsp.highlights[target] = highlight
+    local function startEsp()
+        if activeEsp.enabled then return end
+        activeEsp.enabled=true; activeEsp.generation=activeEsp.generation+1; local gen=activeEsp.generation
+        for _,p in ipairs(Players:GetPlayers()) do track(p) end
+        ec(Players.PlayerAdded,track); ec(Players.PlayerRemoving,untrack)
+        ec(LocalPlayer:GetPropertyChangedSignal("Team"),refresh); ec(LocalPlayer:GetPropertyChangedSignal("TeamColor"),refresh)
+        refresh(); updateEspUI()
+        task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then applyPlayer(p); visibility(p) end end; task.wait(1/activeEsp.updateRate) end end)
+        task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do task.wait(7); if activeEsp.enabled and activeEsp.generation==gen then refresh() end end end)
     end
+    gui.Destroying:Connect(stopEsp)
 
     local function renderDetails(gameInfo)
         selected = gameInfo
@@ -494,10 +551,6 @@ return function(config)
             tween(rowData.button, 0.16, {BackgroundColor3 = active and Color3.fromRGB(39, 34, 66) or PANEL})
             rowData.stroke.Color = active and ACCENT or Color3.fromRGB(48, 54, 78)
             rowData.stroke.Transparency = active and 0.04 or 0.48
-        end
-
-        if not gameInfo.IsGeneralTools and activeEsp.enabled then
-            stopEsp()
         end
 
         local function newContent()
@@ -525,7 +578,7 @@ return function(config)
             Macro = "Automated action chains",
             Premium = "Premium features",
             Webhook = "Webhook alerts",
-            ESP = "Highlight developer test targets",
+            ESP = "Independent limb visibility, team colors and line-of-sight settings",
         }
 
         local function addFeatureList(parentObject, features, gated)
@@ -628,6 +681,8 @@ return function(config)
 
             label(toolCard, "ADVANCED TEAM ESP", UDim2.fromOffset(87, 14), UDim2.new(1, -124, 0, 20), 11, TEXT, Enum.Font.GothamBold)
             label(toolCard, "Player outlines · team colors · visibility", UDim2.fromOffset(87, 37), UDim2.new(1, -124, 0, 17), 7, MUTED, Enum.Font.Gotham)
+            local statusDot=Instance.new("Frame"); statusDot.AnchorPoint=Vector2.new(0.5,0.5); statusDot.Position=UDim2.new(1,-23,0.5,0); statusDot.Size=UDim2.fromOffset(9,9); statusDot.BackgroundColor3=activeEsp.enabled and GREEN or RED; statusDot.BorderSizePixel=0; statusDot.Parent=toolCard; corner(statusDot,8); activeEsp.statusDot=statusDot
+            activeEsp.statusText=label(toolCard,activeEsp.enabled and "ACTIVE" or "OFF",UDim2.new(1,-65,0,0),UDim2.fromOffset(34,86),7,activeEsp.enabled and GREEN or MUTED,Enum.Font.GothamBold,Enum.TextXAlignment.Right)
             label(toolCard, "›", UDim2.new(1, -33, 0, 0), UDim2.fromOffset(22, 86), 25, CYAN, Enum.Font.Gotham, Enum.TextXAlignment.Center)
 
             toolCard.MouseEnter:Connect(function()
@@ -641,93 +696,35 @@ return function(config)
                 tween(toolIcon, 0.15, {BackgroundColor3 = Color3.fromRGB(48, 39, 87)})
             end)
             toolCard.MouseButton1Click:Connect(function()
-                local detailContent = newContent()
-                local back = makeButton(detailContent, "‹", UDim2.new(1, -49, 0, 12), UDim2.fromOffset(34, 30), PANEL3)
-                back.TextSize = 25
-                back.TextColor3 = CYAN
-                back.MouseEnter:Connect(function() tween(back, 0.13, {BackgroundColor3 = ACCENT_DARK}) end)
-                back.MouseLeave:Connect(function() tween(back, 0.13, {BackgroundColor3 = PANEL3}) end)
-                back.MouseButton1Click:Connect(showToolList)
-
-                local iconBox = Instance.new("Frame")
-                iconBox.AnchorPoint = Vector2.new(0.5, 0)
-                iconBox.Position = UDim2.new(0.5, 0, 0, compact and 16 or 21)
-                iconBox.Size = UDim2.fromOffset(compact and 70 or 84, compact and 70 or 84)
-                iconBox.BackgroundColor3 = Color3.fromRGB(27, 31, 57)
-                iconBox.BorderSizePixel = 0
-                iconBox.ClipsDescendants = true
-                iconBox.Parent = detailContent
-                corner(iconBox, 18)
-                local detailArt = Instance.new("UIGradient")
-                detailArt.Color = ColorSequence.new(Color3.fromRGB(77, 48, 154), Color3.fromRGB(20, 132, 157))
-                detailArt.Rotation = 38
-                detailArt.Parent = iconBox
-                for i, diameter in ipairs({64, 46, 28}) do
-                    local rr = Instance.new("Frame")
-                    rr.AnchorPoint = Vector2.new(0.5, 0.5)
-                    rr.Position = UDim2.fromScale(0.5, 0.5)
-                    rr.Size = UDim2.fromOffset(diameter, diameter)
-                    rr.BackgroundTransparency = 1
-                    rr.Parent = iconBox
-                    corner(rr, 100)
-                    local rs = Instance.new("UIStroke", rr)
-                    rs.Color = i == 1 and CYAN or TEXT
-                    rs.Thickness = 1.4
-                    rs.Transparency = 0.25 + i * 0.12
-                end
-                local centerDot = Instance.new("Frame")
-                centerDot.AnchorPoint = Vector2.new(0.5, 0.5)
-                centerDot.Position = UDim2.fromScale(0.5, 0.5)
-                centerDot.Size = UDim2.fromOffset(7, 7)
-                centerDot.BackgroundColor3 = CYAN
-                centerDot.BorderSizePixel = 0
-                centerDot.Parent = iconBox
-                corner(centerDot, 7)
-                local iconStroke = Instance.new("UIStroke", iconBox)
-                iconStroke.Color = CYAN
-                iconStroke.Transparency = 0.35
-
-                local titleY = (compact and 16 or 21) + (compact and 70 or 84) + 8
-                label(detailContent, "ESP", UDim2.new(0, 12, 0, titleY), UDim2.new(1, -24, 0, 24), 17, TEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-                label(detailContent, "PLAYER TRACKING & TEAM VISUALIZATION", UDim2.new(0, 12, 0, titleY + 24), UDim2.new(1, -24, 0, 14), 8, CYAN, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-                label(detailContent, "FEATURES", UDim2.fromOffset(16, titleY + 51), UDim2.new(1, -32, 0, 13), 8, MUTED, Enum.Font.GothamBold)
-
-                local featureWrap = Instance.new("Frame")
-                featureWrap.Position = UDim2.fromOffset(13, titleY + 69)
-                featureWrap.Size = UDim2.new(1, -26, 0, math.max(48, height - (top + bottom) - titleY - 69 - 104))
-                featureWrap.BackgroundTransparency = 1
-                featureWrap.Parent = detailContent
-                addFeatureList(featureWrap, {"Blue teammate limb highlights", "Instant red/green enemy limb visibility", "Glass-aware line-of-sight checks", "Frequent visibility refresh", "Mobile touch controls"}, false)
-
-                statusLabel = label(detailContent, activeEsp.enabled and "ESP is active" or "Ready to enable", UDim2.new(0, 14, 1, -62), UDim2.new(1, -28, 0, 14), 8, activeEsp.enabled and GREEN or MUTED, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
-                executeButton = makeButton(detailContent, "▶   OPEN ESP PANEL", UDim2.new(0, 13, 1, -42), UDim2.new(1, -26, 0, 36), ACCENT_DARK)
-                executeButton.TextSize = 10
-                local actionStroke = Instance.new("UIStroke", executeButton)
-                actionStroke.Color = CYAN
-                actionStroke.Transparency = 0.58
-                executeButton.MouseEnter:Connect(function() tween(executeButton, 0.13, {BackgroundColor3 = ACCENT}) end)
-                executeButton.MouseLeave:Connect(function() tween(executeButton, 0.13, {BackgroundColor3 = ACCENT_DARK}) end)
-
-                executeButton.MouseButton1Click:Connect(function()
-                    if type(config.onExecuteTool) ~= "function" then
-                        statusLabel.Text = "ESP script launcher is not configured"
-                        statusLabel.TextColor3 = RED
-                        return
-                    end
-                    executeButton.Active = false
-                    executeButton.Text = "LAUNCHING ESP..."
-                    statusLabel.Text = "Starting Advanced Team ESP V5..."
-                    statusLabel.TextColor3 = CYAN
-                    task.spawn(function()
-                        local ok, err = pcall(config.onExecuteTool, "ESP")
-                        if executeButton and executeButton.Parent then
-                            executeButton.Active = true
-                            executeButton.Text = "▶   LAUNCH ESP"
-                            statusLabel.Text = ok and "ESP UI launched" or ("Launch failed: " .. tostring(err))
-                            statusLabel.TextColor3 = ok and GREEN or RED
-                        end
-                    end)
-                end)
+                local dc=newContent()
+                local back=makeButton(dc,"‹",UDim2.new(1,-49,0,12),UDim2.fromOffset(34,30),PANEL3); back.TextSize=25; back.TextColor3=CYAN; back.MouseButton1Click:Connect(showToolList)
+                label(dc,"ADVANCED TEAM ESP",UDim2.fromOffset(16,17),UDim2.new(1,-78,0,22),14,TEXT,Enum.Font.GothamBold)
+                label(dc,"PLAYER VISIBILITY & TEAM TRACKING",UDim2.fromOffset(17,42),UDim2.new(1,-34,0,13),7,CYAN,Enum.Font.GothamBold)
+                local sp=Instance.new("Frame"); sp.Position=UDim2.fromOffset(14,68); sp.Size=UDim2.new(1,-28,0,44); sp.BackgroundColor3=PANEL2; sp.BorderSizePixel=0; sp.Parent=dc; corner(sp,9)
+                local dot=Instance.new("Frame"); dot.Position=UDim2.fromOffset(12,17); dot.Size=UDim2.fromOffset(9,9); dot.BackgroundColor3=activeEsp.enabled and GREEN or RED; dot.BorderSizePixel=0; dot.Parent=sp; corner(dot,8)
+                activeEsp.detailStatus=label(sp,"",UDim2.fromOffset(30,0),UDim2.new(1,-42,1,0),8,MUTED,Enum.Font.GothamBold)
+                local toggle=makeButton(dc,activeEsp.enabled and "■   DISABLE ESP" or "▶   ENABLE ESP",UDim2.fromOffset(14,122),UDim2.new(1,-28,0,38),ACCENT_DARK); toggle.TextSize=10; activeEsp.toggleButton=toggle
+                toggle.MouseButton1Click:Connect(function() if activeEsp.enabled then stopEsp() else startEsp() end end)
+                local panel=Instance.new("Frame"); panel.Position=UDim2.fromOffset(14,171); panel.Size=UDim2.new(1,-28,0,144); panel.BackgroundColor3=PANEL; panel.BorderSizePixel=0; panel.Parent=dc; corner(panel,11)
+                local outline=Instance.new("UIStroke",panel); outline.Color=Color3.fromRGB(48,54,80); outline.Transparency=0.35
+                label(panel,"VISIBILITY CHECK RATE",UDim2.fromOffset(12,10),UDim2.new(1,-24,0,16),8,MUTED,Enum.Font.GothamBold)
+                label(panel,"Higher values update more frequently but use more CPU.",UDim2.fromOffset(12,29),UDim2.new(1,-24,0,25),7,MUTED,Enum.Font.Gotham)
+                local track=Instance.new("Frame"); track.Position=UDim2.fromOffset(13,75); track.Size=UDim2.new(1,-103,0,6); track.BackgroundColor3=PANEL3; track.BorderSizePixel=0; track.Parent=panel; corner(track,5)
+                local fill=Instance.new("Frame"); fill.Size=UDim2.new((activeEsp.updateRate-1)/59,0,1,0); fill.BackgroundColor3=CYAN; fill.BorderSizePixel=0; fill.Parent=track; corner(fill,5)
+                local knob=Instance.new("Frame"); knob.AnchorPoint=Vector2.new(0.5,0.5); knob.Position=UDim2.new((activeEsp.updateRate-1)/59,0,0.5,0); knob.Size=UDim2.fromOffset(14,14); knob.BackgroundColor3=TEXT; knob.BorderSizePixel=0; knob.Parent=track; corner(knob,8)
+                local box=Instance.new("TextBox"); box.Position=UDim2.new(1,-76,0,61); box.Size=UDim2.fromOffset(62,30); box.BackgroundColor3=PANEL3; box.BorderSizePixel=0; box.Text=tostring(activeEsp.updateRate); box.PlaceholderText="1-60"; box.ClearTextOnFocus=false; box.Font=Enum.Font.GothamBold; box.TextSize=11; box.TextColor3=TEXT; box.Parent=panel; corner(box,7)
+                label(panel,"1",UDim2.fromOffset(12,89),UDim2.fromOffset(20,13),7,MUTED,Enum.Font.Gotham)
+                label(panel,"60 checks/sec max",UDim2.new(1,-126,0,89),UDim2.fromOffset(112,13),7,MUTED,Enum.Font.Gotham,Enum.TextXAlignment.Right)
+                local function setRate(v) v=math.clamp(math.floor(tonumber(v) or activeEsp.updateRate),1,60); activeEsp.updateRate=v; local a=(v-1)/59; fill.Size=UDim2.new(a,0,1,0); knob.Position=UDim2.new(a,0,0.5,0); box.Text=tostring(v) end
+                local dragging=false; local cons={}
+                local function bind(sig,fn) table.insert(cons,sig:Connect(fn)) end
+                local function moveTo(x) local a=math.clamp((x-track.AbsolutePosition.X)/math.max(track.AbsoluteSize.X,1),0,1); setRate(1+a*59) end
+                bind(track.InputBegan,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; moveTo(i.Position.X) end end)
+                bind(UserInputService.InputChanged,function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then moveTo(i.Position.X) end end)
+                bind(UserInputService.InputEnded,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
+                bind(box.FocusLost,function() local n=tonumber(box.Text); if n then setRate(n) else box.Text=tostring(activeEsp.updateRate) end end)
+                dc.Destroying:Connect(function() for _,c in ipairs(cons) do pcall(function() c:Disconnect() end) end; if activeEsp.detailStatus and activeEsp.detailStatus.Parent==sp then activeEsp.detailStatus=nil end; if activeEsp.toggleButton==toggle then activeEsp.toggleButton=nil end end)
+                updateEspUI()
             end)
         end
 
