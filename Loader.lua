@@ -780,6 +780,9 @@ if not entry then
         end)
         if not okRun then warn("[ToT Nexus] Game library UI failed: " .. tostring(runErr)) end
     end
+    -- Close only the boot splash after the library has been created.
+    -- Never destroy the library itself for an unsupported current game.
+    if splash then splash.finish() end
     return
 end
 
