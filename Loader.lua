@@ -814,11 +814,31 @@ if not scriptSrc then
     return
 end
 
-status("Ready - enjoy!", ACCENT2, 1)
+status("Ready - choose a mode", ACCENT2, 1)
 startImportTool()
 if splash then
     splash.finish()
 end
 
-print("[ToT Nexus] Executing " .. entry.Name)
-loadstring(scriptSrc)()
+local function executeGameScript()
+    if getgenv().ToTNexusGameStarted then return end
+    getgenv().ToTNexusGameStarted = true
+    print("[ToT Nexus] Executing " .. entry.Name)
+    loadstring(scriptSrc)()
+end
+
+local okLibrary, librarySource = pcall(function()
+    return game:HttpGet(BASE .. "/tools/GeneralScripts.lua")
+end)
+if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
+    local okRun, runErr = pcall(function()
+        loadstring(librarySource)(executeGameScript)
+    end)
+    if not okRun then
+        warn("[ToT Nexus] General Scripts UI failed: " .. tostring(runErr))
+        executeGameScript()
+    end
+else
+    warn("[ToT Nexus] General Scripts UI unavailable")
+    executeGameScript()
+end
