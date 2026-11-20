@@ -174,6 +174,7 @@ return function(config)
         config.versionStatus == "UP TO DATE" and GREEN or (config.versionStatus == "UPDATE AVAILABLE" and RED or MUTED),
         Enum.Font.GothamBold, Enum.TextXAlignment.Right)
     versionBadge.Name = "VersionStatus"
+    versionBadge.Active = true
 
 
     local minimized = false
