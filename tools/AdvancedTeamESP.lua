@@ -1,5 +1,5 @@
 -- ToT Nexus | Advanced Team ESP V3
--- Standalone client-side player ESP UI. Uses a single Highlight per player for stability.
+-- Standalone client-side player ESP UI. Uses a single Highlight per player with low-overhead team coloring.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -23,9 +23,7 @@ local reopenButton
 
 local COLORS = {
     Ally = Color3.fromRGB(75, 165, 255),
-    Visible = Color3.fromRGB(85, 245, 150),
     Hidden = Color3.fromRGB(255, 82, 105),
-    Surface = Color3.fromRGB(255, 255, 255),
     Background = Color3.fromRGB(12, 16, 28),
     Panel = Color3.fromRGB(21, 27, 44),
     Accent = Color3.fromRGB(139, 102, 255),
@@ -49,25 +47,6 @@ local function isAlly(player)
         return LocalPlayer.TeamColor == player.TeamColor
     end
     return false
-end
-
-local function canSee(character)
-    local camera = workspace.CurrentCamera
-    local target = character and (character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart"))
-    if not camera or not target then return false end
-    local origin = camera.CFrame.Position
-    local direction = target.Position - origin
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {LocalPlayer.Character, character}
-    params.IgnoreWater = true
-    local result = workspace:Raycast(origin, direction, params)
-    -- Transparent/glass objects do not count as blocking line of sight.
-    while result and result.Instance and (result.Instance.Transparency >= 0.65 or result.Instance.Material == Enum.Material.Glass) do
-        table.insert(params.FilterDescendantsInstances, result.Instance)
-        result = workspace:Raycast(origin, direction, params)
-    end
-    return result == nil
 end
 
 local function clearPlayer(player)
@@ -105,10 +84,11 @@ local function applyPlayer(player)
     end
 
     local color
+    -- Keep updates cheap: no per-player raycasts or visibility scans.
     if isAlly(player) then
         color = COLORS.Ally
     else
-        color = canSee(character) and COLORS.Visible or COLORS.Hidden
+        color = COLORS.Hidden
     end
     record.instance.FillColor = color
     record.instance.OutlineColor = color
@@ -250,8 +230,7 @@ local function legendDot(x, color, text)
     makeText(legend, text, UDim2.fromOffset(x + 12, 0), UDim2.fromOffset(75, 27), 8, COLORS.Muted, Enum.Font.GothamMedium)
 end
 legendDot(9, COLORS.Ally, "TEAMMATE")
-legendDot(105, COLORS.Visible, "VISIBLE")
-legendDot(198, COLORS.Hidden, "OCCLUDED")
+legendDot(145, COLORS.Hidden, "ENEMY")
 
 reopenButton = makeButton(gui, "✦  OPEN ESP", UDim2.new(0, 16, 0, 72), UDim2.fromOffset(116, 34))
 reopenButton.Visible = false
@@ -265,7 +244,7 @@ local function setEnabled(value)
     if enabled then
         toggle.Text = "DISABLE ESP"
         toggle.BackgroundColor3 = Color3.fromRGB(65, 45, 105)
-        status.Text = "ESP IS ACTIVE · TRACKING PLAYERS"
+        status.Text = "ESP IS ACTIVE · TEAM COLORS"
         status.TextColor3 = COLORS.Cyan
         refreshAll()
     else
@@ -291,24 +270,35 @@ reopenButton.MouseButton1Click:Connect(function()
     reopenButton.Visible = false
 end)
 
--- Drag the window from its header; touch input works on mobile as well.
+-- Event-driven dragging: no permanent RenderStepped callback.
 do
-    local dragging, dragStart, startPos
+    local UserInputService = game:GetService("UserInputService")
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+
     top.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
+            dragInput = input
             dragStart = input.Position
             startPos = panel.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
         end
     end)
-    connect(RunService.RenderStepped, function()
-        if dragging and dragStart and startPos then
-            local input = game:GetService("UserInputService"):GetMouseLocation()
-            local delta = input - dragStart
+
+    connect(UserInputService.InputChanged, function(input)
+        if not dragging or not dragStart or not startPos then return end
+        if input == dragInput or input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - dragStart
             panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    connect(UserInputService.InputEnded, function(input)
+        if input == dragInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            dragInput = nil
         end
     end)
 end
@@ -318,7 +308,7 @@ connect(Players.PlayerAdded, trackPlayer)
 connect(Players.PlayerRemoving, untrackPlayer)
 local lastRefresh = 0
 connect(RunService.Heartbeat, function()
-    if enabled and alive and os.clock() - lastRefresh >= 0.85 then
+    if enabled and alive and os.clock() - lastRefresh >= 2.5 then
         lastRefresh = os.clock()
         refreshAll()
     end
