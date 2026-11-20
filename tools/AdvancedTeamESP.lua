@@ -95,18 +95,34 @@ local function applyPlayer(player)
         h.FillTransparency = 0.82
         h.OutlineTransparency = 0.04
         h.Parent = character
-        record = {instance = h, character = character}
+        record = {instance = h, character = character, surfaces = {}}
+        -- Add translucent surface patches to each body part as well as the silhouette outline.
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                local patch = Instance.new("BoxHandleAdornment")
+                patch.Name = "ToTNexus_ESP_Surface"
+                patch.Adornee = part
+                patch.Size = part.Size
+                patch.AlwaysOnTop = true
+                patch.ZIndex = 4
+                patch.Transparency = 0.76
+                patch.Parent = part
+                table.insert(record.surfaces, patch)
+            end
+        end
         highlights[player] = record
     end
 
+    local color
     if isAlly(player) then
-        record.instance.FillColor = COLORS.Ally
-        record.instance.OutlineColor = COLORS.Ally
+        color = COLORS.Ally
     else
-        local visible = canSee(character)
-        local color = visible and COLORS.Visible or COLORS.Hidden
-        record.instance.FillColor = color
-        record.instance.OutlineColor = color
+        color = canSee(character) and COLORS.Visible or COLORS.Hidden
+    end
+    record.instance.FillColor = color
+    record.instance.OutlineColor = color
+    for _, patch in ipairs(record.surfaces) do
+        if patch and patch.Parent then patch.Color3 = color end
     end
 end
 
@@ -312,8 +328,12 @@ end
 for _, player in ipairs(Players:GetPlayers()) do trackPlayer(player) end
 connect(Players.PlayerAdded, trackPlayer)
 connect(Players.PlayerRemoving, untrackPlayer)
+local lastRefresh = 0
 connect(RunService.Heartbeat, function()
-    if enabled and alive then refreshAll() end
+    if enabled and alive and os.clock() - lastRefresh >= 0.2 then
+        lastRefresh = os.clock()
+        refreshAll()
+    end
 end)
 
 local function cleanup()
