@@ -11,8 +11,8 @@ local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 
-local VERSION = "3.14"
-local BUILD_ID = "2026.11.20.7"
+local VERSION = "3.15"
+local BUILD_ID = "2026.11.20.8"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
