@@ -7,6 +7,21 @@ if old then old:Destroy() end
 
 local player = game:GetService("Players").LocalPlayer
 
+-- Stable uniqid: this game hub replaces only its own previous instance.
+local scriptObjects = {}
+local antiAfkConnection
+local function cleanupPrevious()
+    if antiAfkConnection then pcall(function() antiAfkConnection:Disconnect() end) end
+    for _, object in ipairs(scriptObjects) do
+        if object and object.Parent then pcall(function() object:Destroy() end) end
+    end
+    local oldGui = game:GetService("CoreGui"):FindFirstChild("Rayfield")
+    if oldGui then pcall(function() oldGui:Destroy() end) end
+    local oldWindow = getgenv().Window
+    if oldWindow and oldWindow.Destroy then pcall(function() oldWindow:Destroy() end) end
+end
+local isCurrent = getgenv().ToTNexusStartScript("idle-potato-game-main", cleanupPrevious)
+
 -- Per-user config files (everyone else gets "Tato Hub")
 local Configs = {
     [4874964037] = "BJDHCMAINConfig",
@@ -57,6 +72,7 @@ for _, s in ipairs({ { 5793681247, 1, false }, { 18967588612, 2, true } }) do
     sound.Volume = s[2]
     sound.Looped = s[3]
     sound.Parent = workspace
+    scriptObjects[#scriptObjects + 1] = sound
     sound:Play()
 end
 
@@ -118,7 +134,7 @@ if getconnections then
         elseif c.Disconnect then c:Disconnect() end
     end
 else
-    player.Idled:Connect(function()
+    antiAfkConnection = player.Idled:Connect(function()
         local vu = game:GetService("VirtualUser")
         vu:Button2Down(Vector2.new(), workspace.CurrentCamera.CFrame)
         task.wait(1)
@@ -126,6 +142,7 @@ else
     end)
 end
 
+if not isCurrent() then return end
 Rayfield:LoadConfiguration()
 
 -- Auto re-execute after teleport (via the universal loader)
