@@ -1,5 +1,5 @@
 -- ToT Nexus | Advanced Team ESP V3
--- NEXUS_BUILD_ID: 2026.11.20.6
+-- NEXUS_BUILD_ID: 2026.11.20.7
 -- Standalone client-side player ESP UI. Uses a single Highlight per player with low-overhead team coloring.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -112,10 +112,29 @@ local function updateVisibility(player)
     params.FilterDescendantsInstances = LocalPlayer.Character and {LocalPlayer.Character} or {}
     params.IgnoreWater = true
 
-    -- One ray per enemy per interval. No transparent-part scanning or retry chains.
-    local result = workspace:Raycast(origin, direction, params)
-    -- No hit means the ray reached the target without an obstruction.
-    record.visible = result == nil or result.Instance:IsDescendantOf(character)
+    -- Bounded line-of-sight check: skip a small number of transparent/glass blockers.
+    local excluded = LocalPlayer.Character and {LocalPlayer.Character} or {}
+    local visible = false
+    for attempt = 1, 4 do
+        params.FilterDescendantsInstances = excluded
+        local result = workspace:Raycast(origin, direction, params)
+        if not result then
+            visible = true
+            break
+        end
+        if result.Instance:IsDescendantOf(character) then
+            visible = true
+            break
+        end
+        local hit = result.Instance
+        local transparent = hit:IsA("BasePart") and (hit.Transparency >= 0.65 or hit.Material == Enum.Material.Glass)
+        if transparent and attempt < 4 then
+            table.insert(excluded, hit)
+        else
+            break
+        end
+    end
+    record.visible = visible
     local color = record.visible and COLORS.Visible or COLORS.Hidden
     record.instance.FillColor = color
     record.instance.OutlineColor = color
