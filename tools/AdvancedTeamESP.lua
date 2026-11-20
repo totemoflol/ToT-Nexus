@@ -1,6 +1,6 @@
 -- ToT Nexus | Advanced Team ESP V4
 -- NEXUS_BUILD_ID: 2026.11.20.9
--- Standalone client-side player ESP UI. Uses a single Highlight per player with low-overhead team coloring.
+-- Standalone client-side player ESP UI. Uses executor Drawing samples for screen-space visibility coloring.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
@@ -350,10 +350,11 @@ local function legendDot(x, color, text)
     dot.BorderSizePixel = 0
     dot.Parent = legend
     corner(dot, 5)
-    makeText(legend, text, UDim2.fromOffset(x + 12, 0), UDim2.fromOffset(75, 27), 8, COLORS.Muted, Enum.Font.GothamMedium)
+    makeText(legend, text, UDim2.fromOffset(x + 12, 0), UDim2.fromOffset(64, 27), 7, COLORS.Muted, Enum.Font.GothamMedium)
 end
-legendDot(9, COLORS.Ally, "TEAMMATE")
-legendDot(145, COLORS.Visible, "VISIBLE ENEMY")
+legendDot(8, COLORS.Ally, "TEAM")
+legendDot(94, COLORS.Visible, "VISIBLE")
+legendDot(188, COLORS.Hidden, "HIDDEN")
 
 reopenButton = makeButton(gui, "✦  OPEN ESP", UDim2.new(0, 16, 0, 72), UDim2.fromOffset(116, 34))
 reopenButton.Visible = false
