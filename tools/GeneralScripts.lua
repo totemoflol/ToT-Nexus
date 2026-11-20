@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.20.7
+-- NEXUS_BUILD_ID: 2026.11.20.8
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -906,6 +906,7 @@ return function(config)
         layout.Parent = log
 
         local entries = {
+            {date = "20 NOV 2026 · ESP VISIBILITY", title = "Team refresh and partial visibility", body = "Teams refresh every 7 seconds and on team property changes. Enemy body parts blend individually between green (visible) and red (hidden).", affected = "Affects: Advanced Team ESP; per-limb visibility approximation, capped highlights and raycasts."},
             {date = "20 NOV 2026 · ESP + UI HOTFIX", title = "Restored visibility checks and fixed dragging", body = "Enemy visibility now uses bounded raycasts that can pass through a few transparent or glass blockers. Both windows now capture mouse and touch movement globally.", affected = "Affects: Advanced Team ESP line-of-sight colors, mobile/desktop dragging, and performance safeguards."},
             {date = "20 NOV 2026 · ESP STABILITY", title = "Removed expensive ESP work", body = "Removed world raycasts, transparent-object scans and the recurring refresh loop. Player and character events now drive updates.", affected = "Affects: Advanced Team ESP performance. Enemy visibility colors are temporarily replaced with simple team-based colors."},
             {date = "20 NOV 2026 · MOBILE CONTROLS", title = "Improved touch dragging", body = "Added touch-movement handling for the ESP window and drag support for the main library.", affected = "Affects: Moving both ToT Nexus and the ESP panel on touch devices."},
