@@ -1,11 +1,11 @@
 {
-  "version": "3.15",
-  "build": "2026.11.20.8",
+  "version": "3.16",
+  "build": "2026.11.20.9",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.8",
-    "GeneralScripts": "2026.11.20.8",
-    "AdvancedTeamESP": "2026.11.20.8"
+    "Loader": "2026.11.20.9",
+    "GeneralScripts": "2026.11.20.9",
+    "AdvancedTeamESP": "2026.11.20.9"
   },
-  "notes": "7-second team reconciliation, event-based team updates, and smooth per-limb visibility colors."
+  "notes": "Custom executor Drawing renderer with sampled camera-facing body surfaces, independent visible/occluded colors, capped targets and raycasts."
 }
