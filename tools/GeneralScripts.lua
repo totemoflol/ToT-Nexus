@@ -291,9 +291,24 @@ return function(config)
             corner(image, 9)
             image.ImageTransparency = 0
             image.Visible = true
-            image:GetPropertyChangedSignal("Image"):Connect(function()
-                if image.Image == "" then image.Image = gameInfo.Icon or "" end
-            end)
+            local fallback = Instance.new("TextLabel")
+            fallback.Name = "IconFallback"
+            fallback.Size = UDim2.fromScale(1, 1)
+            fallback.BackgroundColor3 = Color3.fromRGB(42, 39, 68)
+            fallback.BackgroundTransparency = 0
+            fallback.BorderSizePixel = 0
+            fallback.Font = Enum.Font.GothamBlack
+            fallback.Text = string.upper(string.sub(gameInfo.Name or "G", 1, 1))
+            fallback.TextColor3 = CYAN
+            fallback.TextSize = compact and 19 or 22
+            fallback.ZIndex = image.ZIndex + 1
+            fallback.Parent = image
+            corner(fallback, 9)
+            local function syncIconFallback()
+                fallback.Visible = not image.IsLoaded
+            end
+            image:GetPropertyChangedSignal("IsLoaded"):Connect(syncIconFallback)
+            syncIconFallback()
         end
 
         local textX = compact and 55 or 62
