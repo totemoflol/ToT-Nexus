@@ -223,8 +223,10 @@ return function(config)
         local outline = Instance.new("UIStroke", dialog)
         outline.Color = RED
         outline.Transparency = 0.25
-        label(dialog, "CLOSE LIBRARY?", UDim2.fromOffset(18, 17), UDim2.new(1, -36, 0, 24), 15, TEXT, Enum.Font.GothamBold)
-        label(dialog, "This will close ToT Nexus. You can reopen it by executing the loader again.", UDim2.fromOffset(18, 48), UDim2.new(1, -36, 0, 48), 10, MUTED, Enum.Font.Gotham)
+        local confirmTitle = label(dialog, "CLOSE LIBRARY?", UDim2.fromOffset(18, 17), UDim2.new(1, -36, 0, 24), 15, TEXT, Enum.Font.GothamBold)
+        confirmTitle.ZIndex = 52
+        local confirmBody = label(dialog, "This will close ToT Nexus. You can reopen it by executing the loader again.", UDim2.fromOffset(18, 48), UDim2.new(1, -36, 0, 48), 10, MUTED, Enum.Font.Gotham)
+        confirmBody.ZIndex = 52
         local cancel = makeButton(dialog, "CANCEL", UDim2.new(0, 16, 1, -48), UDim2.new(0.5, -22, 0, 32), PANEL3)
         cancel.ZIndex = 52
         local confirm = makeButton(dialog, "CLOSE LIBRARY", UDim2.new(0.5, 6, 1, -48), UDim2.new(0.5, -22, 0, 32), Color3.fromRGB(112, 42, 65))
