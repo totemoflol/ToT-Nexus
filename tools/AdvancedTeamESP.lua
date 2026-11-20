@@ -1,6 +1,6 @@
--- ToT Nexus | Advanced Team ESP V4
--- NEXUS_BUILD_ID: 2026.11.20.9
--- Standalone client-side player ESP UI. Uses executor Drawing samples for screen-space visibility coloring.
+-- ToT Nexus | Advanced Team ESP V5
+-- NEXUS_BUILD_ID: 2026.11.20.10
+-- Standalone client-side player ESP UI. Uses native per-limb Highlights with immediate visibility colors.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
@@ -50,59 +50,31 @@ local function isAlly(player)
     return false
 end
 
--- Executor Drawing renderer: sampled points on each camera-facing body-part surface.
--- Each sample is independently raycast, allowing green and red on the same body part.
-local MAX_TARGETS = 6
-local MAX_PARTS = 8
-local GRID = 4
-local VISIBILITY_INTERVAL = 0.45
+-- Native Roblox Highlights, one per body part. Color changes are immediate (no tween).
+local MAX_PARTS = 12
+local VISIBILITY_INTERVAL = 0.16
 local TEAM_INTERVAL = 7
-local renderers = {}
-local drawingAvailable = type(Drawing) == "table" and type(Drawing.new) == "function"
+local highlights = {}
 
 local function isRenderablePart(part)
     return part:IsA("BasePart") and part.Name ~= "HumanoidRootPart"
         and part.Transparency < 0.95 and not part:FindFirstAncestorOfClass("Accessory")
 end
 
-local function removeDots(record)
-    if not record then return end
-    for _, dot in ipairs(record.dots or {}) do
-        pcall(function() dot:Remove() end)
-    end
-    record.dots = {}
-end
-
 local function clearPlayer(player)
-    local record = renderers[player]
+    local record = highlights[player]
     if not record then return end
-    removeDots(record)
-    renderers[player] = nil
+    for _, item in ipairs(record.items) do
+        if item.highlight then pcall(function() item.highlight:Destroy() end) end
+    end
+    highlights[player] = nil
 end
 
-local function makeDot()
-    local ok, dot = pcall(function()
-        local item = Drawing.new("Circle")
-        item.Filled = true
-        item.NumSides = 8
-        item.Radius = 2
-        item.Transparency = 0.92
-        item.Visible = false
-        return item
-    end)
-    return ok and dot or nil
-end
-
-local function ensureDots(record, count)
-    for i = #record.dots + 1, count do
-        local dot = makeDot()
-        if not dot then return false end
-        record.dots[i] = dot
-    end
-    for i = count + 1, #record.dots do
-        pcall(function() record.dots[i].Visible = false end)
-    end
-    return true
+local function setPartColor(item, color)
+    if not item.highlight or not item.highlight.Parent or item.color == color then return end
+    item.color = color
+    item.highlight.FillColor = color
+    item.highlight.OutlineColor = color
 end
 
 local function applyPlayer(player)
@@ -111,43 +83,39 @@ local function applyPlayer(player)
     if not character or not character.Parent then clearPlayer(player) return end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if not humanoid or humanoid.Health <= 0 then clearPlayer(player) return end
-    local record = renderers[player]
+    local record = highlights[player]
     if not record or record.character ~= character then
         clearPlayer(player)
-        record = {character = character, dots = {}}
-        renderers[player] = record
+        record = {character = character, items = {}}
+        highlights[player] = record
+    end
+    local known = {}
+    for _, item in ipairs(record.items) do known[item.part] = true end
+    for _, part in ipairs(character:GetChildren()) do
+        if #record.items >= MAX_PARTS then break end
+        if isRenderablePart(part) and not known[part] then
+            local h = Instance.new("Highlight")
+            h.Name = "ToTNexus_LimbESP"
+            h.Adornee = part
+            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            h.FillTransparency = 0.72
+            h.OutlineTransparency = 0.05
+            local initial = isAlly(player) and COLORS.Ally or COLORS.Hidden
+            h.FillColor = initial
+            h.OutlineColor = initial
+            h.Parent = part
+            table.insert(record.items, {part = part, highlight = h, color = initial})
+        end
     end
 end
 
-local function getFacingFace(part, cameraPosition)
-    local cf = part.CFrame
-    local towardCamera = cameraPosition - part.Position
-    if towardCamera.Magnitude < 0.001 then return nil end
-    towardCamera = towardCamera.Unit
-    local axes = {
-        {normal = cf.RightVector, u = cf.UpVector, v = cf.LookVector, half = part.Size.X / 2, uHalf = part.Size.Y / 2, vHalf = part.Size.Z / 2},
-        {normal = -cf.RightVector, u = cf.UpVector, v = cf.LookVector, half = part.Size.X / 2, uHalf = part.Size.Y / 2, vHalf = part.Size.Z / 2},
-        {normal = cf.UpVector, u = cf.RightVector, v = cf.LookVector, half = part.Size.Y / 2, uHalf = part.Size.X / 2, vHalf = part.Size.Z / 2},
-        {normal = -cf.UpVector, u = cf.RightVector, v = cf.LookVector, half = part.Size.Y / 2, uHalf = part.Size.X / 2, vHalf = part.Size.Z / 2},
-        {normal = cf.LookVector, u = cf.RightVector, v = cf.UpVector, half = part.Size.Z / 2, uHalf = part.Size.X / 2, vHalf = part.Size.Y / 2},
-        {normal = -cf.LookVector, u = cf.RightVector, v = cf.UpVector, half = part.Size.Z / 2, uHalf = part.Size.X / 2, vHalf = part.Size.Y / 2},
-    }
-    local best, bestDot
-    for _, face in ipairs(axes) do
-        local dot = face.normal:Dot(towardCamera)
-        if not bestDot or dot > bestDot then best, bestDot = face, dot end
-    end
-    if not best or bestDot <= 0 then return nil end
-    return best
-end
-
-local function pointVisible(origin, point, character, params, excluded)
-    local direction = point - origin
+local function canSeePart(origin, part, character, params, excluded)
+    local direction = part.Position - origin
     for attempt = 1, 3 do
         params.FilterDescendantsInstances = excluded
-        local hit = workspace:Raycast(origin, direction, params)
-        if not hit or hit.Instance:IsDescendantOf(character) then return true end
-        local blocker = hit.Instance
+        local result = workspace:Raycast(origin, direction, params)
+        if not result or result.Instance:IsDescendantOf(character) then return true end
+        local blocker = result.Instance
         if attempt < 3 and blocker:IsA("BasePart")
             and (blocker.Transparency >= 0.65 or blocker.Material == Enum.Material.Glass) then
             table.insert(excluded, blocker)
@@ -160,55 +128,23 @@ end
 
 local function updateVisibility(player)
     if not alive or not enabled or player == LocalPlayer then return end
-    local record = renderers[player]
+    local record = highlights[player]
     if not record or not record.character or not record.character.Parent then return end
+    if isAlly(player) then
+        for _, item in ipairs(record.items) do setPartColor(item, COLORS.Ally) end
+        return
+    end
     local camera = workspace.CurrentCamera
     if not camera then return end
-    local ally = isAlly(player)
     local origin = camera.CFrame.Position
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.IgnoreWater = true
-    local excludedBase = LocalPlayer.Character and {LocalPlayer.Character} or {}
-    local samples = {}
-    local partCount = 0
-
-    for _, part in ipairs(record.character:GetChildren()) do
-        if partCount >= MAX_PARTS then break end
-        if isRenderablePart(part) then
-            local face = getFacingFace(part, origin)
-            if face then
-                partCount = partCount + 1
-                local center = part.Position + face.normal * (face.half * 0.96)
-                for x = 1, GRID do
-                    for y = 1, GRID do
-                        local u = ((x - 0.5) / GRID * 2 - 1) * face.uHalf * 0.88
-                        local v = ((y - 0.5) / GRID * 2 - 1) * face.vHalf * 0.88
-                        samples[#samples + 1] = center + face.u * u + face.v * v
-                    end
-                end
-            end
-        end
-    end
-
-    if not ensureDots(record, #samples) then
-        status.Text = "DRAWING API ERROR · CHECK EXECUTOR"
-        status.TextColor3 = COLORS.Hidden
-        return
-    end
-
-    local viewport = camera.ViewportSize
-    for i, point in ipairs(samples) do
-        local dot = record.dots[i]
-        local projected, onScreen = camera:WorldToViewportPoint(point)
-        if onScreen and projected.Z > 0 and projected.X >= 0 and projected.Y >= 0
-            and projected.X <= viewport.X and projected.Y <= viewport.Y then
-            local visible = ally or pointVisible(origin, point, record.character, params, table.clone(excludedBase))
-            dot.Position = Vector2.new(projected.X, projected.Y)
-            dot.Color = ally and COLORS.Ally or (visible and COLORS.Visible or COLORS.Hidden)
-            dot.Visible = true
-        else
-            dot.Visible = false
+    for _, item in ipairs(record.items) do
+        if item.part.Parent and item.highlight.Parent then
+            local excluded = LocalPlayer.Character and {LocalPlayer.Character} or {}
+            local visible = canSeePart(origin, item.part, record.character, params, excluded)
+            setPartColor(item, visible and COLORS.Visible or COLORS.Hidden)
         end
     end
 end
@@ -364,19 +300,11 @@ reopenStroke.Color = COLORS.Accent
 reopenStroke.Parent = reopenButton
 
 local function setEnabled(value)
-    if value and not drawingAvailable then
-        enabled = false
-        toggle.Text = "ENABLE ESP"
-        toggle.BackgroundColor3 = COLORS.Accent
-        status.Text = "DRAWING API NOT AVAILABLE"
-        status.TextColor3 = COLORS.Hidden
-        return
-    end
     enabled = value
     if enabled then
         toggle.Text = "DISABLE ESP"
         toggle.BackgroundColor3 = Color3.fromRGB(65, 45, 105)
-        status.Text = "CUSTOM SURFACE SAMPLING ACTIVE"
+        status.Text = "INSTANT LIMB VISIBILITY ACTIVE"
         status.TextColor3 = COLORS.Cyan
         refreshAll()
     else
@@ -384,7 +312,7 @@ local function setEnabled(value)
         toggle.BackgroundColor3 = COLORS.Accent
         status.Text = "ESP IS OFF"
         status.TextColor3 = COLORS.Muted
-        for player in pairs(renderers) do clearPlayer(player) end
+        for player in pairs(highlights) do clearPlayer(player) end
     end
 end
 
@@ -455,14 +383,12 @@ task.spawn(function()
     end
 end)
 
--- Throttled screen-space surface sampling. No RenderStepped/Heartbeat.
+-- Frequent bounded limb raycasts. No RenderStepped/Heartbeat.
 task.spawn(function()
     while alive do
         if enabled then
-            local processed = 0
             for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and processed < MAX_TARGETS then
-                    processed = processed + 1
+                if player ~= LocalPlayer then
                     applyPlayer(player)
                     updateVisibility(player)
                 end
@@ -477,7 +403,7 @@ local function cleanup()
     if not alive then return end
     alive = false
     enabled = false
-    for player in pairs(renderers) do clearPlayer(player) end
+    for player in pairs(highlights) do clearPlayer(player) end
     for player in pairs(playerConnections) do untrackPlayer(player) end
     for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
     table.clear(connections)
@@ -488,4 +414,4 @@ ENV.ToTNexusTools[KEY] = {cleanup = cleanup}
 if ENV.ToTNexusStartScript then
     ENV.ToTNexusStartScript("tool-advanced-team-esp", cleanup)
 end
-print("[ToT Nexus] Advanced Team ESP V4 custom Drawing renderer loaded")
+print("[ToT Nexus] Advanced Team ESP V5 native limb renderer loaded")
