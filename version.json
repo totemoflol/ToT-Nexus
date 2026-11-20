@@ -1,11 +1,11 @@
 {
-  "version": "3.18",
-  "build": "2026.11.20.11",
+  "version": "3.19",
+  "build": "2026.11.20.12",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.11",
-    "GeneralScripts": "2026.11.20.11",
-    "AdvancedTeamESP": "2026.11.20.11"
+    "Loader": "2026.11.20.12",
+    "GeneralScripts": "2026.11.20.12",
+    "AdvancedTeamESP": "2026.11.20.12"
   },
-  "notes": "10 Hz native per-limb visibility refresh with center-first and four camera-facing surface ray samples, plus transparent/glass pass-through."
+  "notes": "Configurable ESP visibility refresh rate from 1 to 60 checks per second using a slider and numeric input."
 }
