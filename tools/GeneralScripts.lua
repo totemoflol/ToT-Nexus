@@ -16,8 +16,12 @@ local MUTED = Color3.fromRGB(151, 158, 181)
 
 return function(onContinue)
     local parent = (gethui and gethui()) or game:GetService("CoreGui")
-    local existing = parent:FindFirstChild("ToTNexusGeneralScripts")
-    if existing then existing:Destroy() end
+    local gui
+    local clearHighlights = function() end
+    local isCurrent = getgenv().ToTNexusStartScript("general-scripts-library", function()
+        if gui then gui:Destroy() end
+        getgenv().ToTNexusStopScript("general-esp-highlight")
+    end)
 
     local gui = Instance.new("ScreenGui")
     gui.Name = "ToTNexusGeneralScripts"
@@ -98,7 +102,8 @@ return function(onContinue)
     label(card, "v1.0  •  ToT Nexus utility library", UDim2.fromOffset(21, 231), UDim2.new(1, -42, 0, 18), 9, MUTED)
 
     local function closeAndContinue()
-        gui:Destroy()
+        if not isCurrent() then return end
+        getgenv().ToTNexusStopScript("general-scripts-library")
         if onContinue then task.spawn(onContinue) end
     end
     close.MouseButton1Click:Connect(closeAndContinue)
@@ -135,7 +140,7 @@ return function(onContinue)
         local enabled = false
         local highlights = {}
         local targetFolder = workspace:FindFirstChild("ToTNexusTestTargets")
-        local function clearHighlights()
+        clearHighlights = function()
             for model, highlight in pairs(highlights) do
                 if highlight then highlight:Destroy() end
                 highlights[model] = nil
@@ -162,25 +167,26 @@ return function(onContinue)
             end
         end
         toggle.MouseButton1Click:Connect(function()
+            if not isCurrent() then return end
             enabled = not enabled
             toggle.Text = enabled and "ON" or "OFF"
             toggle.BackgroundColor3 = enabled and Color3.fromRGB(58, 48, 105) or Color3.fromRGB(54, 58, 78)
             if enabled then
+                getgenv().ToTNexusStartScript("general-esp-highlight", clearHighlights)
                 applyHighlights()
                 if not targetFolder then
                     toggle.Text = "NO FOLDER"
                     enabled = false
                 end
             else
-                clearHighlights()
+                getgenv().ToTNexusStopScript("general-esp-highlight")
             end
         end)
 
         local back = makeButton("←    Back to menu", 218, ACCENT)
         back.MouseButton1Click:Connect(function()
-            clearHighlights()
-            gui:Destroy()
-            if onContinue then task.spawn(onContinue) end
+            getgenv().ToTNexusStopScript("general-esp-highlight")
+            closeAndContinue()
         end)
         local note = label(card, "Add NPC/dummy Models to workspace.ToTNexusTestTargets in your own place.", UDim2.fromOffset(21, 275), UDim2.new(1, -42, 0, 25), 9, MUTED)
         note.TextWrapped = true
