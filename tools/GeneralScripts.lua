@@ -515,7 +515,7 @@ return function(config)
         end
         fullbright.applying=false
     end
-    local function stopFullbright()
+    local function stopFullbright(skipSave)
         if not fullbright.enabled then return end
         fullbright.enabled=false
         for _,connection in ipairs(fullbright.connections) do pcall(function() connection:Disconnect() end) end
@@ -525,7 +525,7 @@ return function(config)
         end
         fullbright.original=nil
         updateFullbrightUI()
-        if saveConfig then saveConfig() end
+        if not skipSave and saveConfig then saveConfig() end
     end
     local function startFullbright()
         if fullbright.enabled then return end
@@ -633,12 +633,12 @@ return function(config)
         ec(p:GetPropertyChangedSignal("TeamColor"),function() if activeEsp.enabled then applyPlayer(p) end end,bucket)
         if p.Character and activeEsp.enabled then applyPlayer(p) end
     end
-    local function stopEsp()
+    local function stopEsp(skipSave)
         activeEsp.enabled=false; activeEsp.generation=activeEsp.generation+1
         for _,c in ipairs(activeEsp.connections) do pcall(function() c:Disconnect() end) end; table.clear(activeEsp.connections)
         for p in pairs(activeEsp.playerConnections) do untrack(p) end
         for p in pairs(activeEsp.highlights) do clearPlayer(p) end; updateEspUI()
-        if saveConfig then saveConfig() end
+        if not skipSave and saveConfig then saveConfig() end
     end
     local function startEsp()
         if activeEsp.enabled then return end
@@ -651,8 +651,8 @@ return function(config)
         task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then applyPlayer(p); visibility(p) end end; task.wait(1/activeEsp.updateRate) end end)
         task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do task.wait(7); if activeEsp.enabled and activeEsp.generation==gen then refresh() end end end)
     end
-    gui.Destroying:Connect(stopEsp)
-    gui.Destroying:Connect(stopFullbright)
+    gui.Destroying:Connect(function() stopEsp(true) end)
+    gui.Destroying:Connect(function() stopFullbright(true) end)
 
     -- Restore the last saved settings before the tool cards are rendered.
     if loadedConfig.fullbrightEnabled == true then startFullbright() end
