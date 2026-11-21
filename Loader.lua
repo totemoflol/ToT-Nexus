@@ -53,6 +53,7 @@ local function cleanupPreviousSession()
         end
     end
 end
+cleanupPreviousSession()
 NexusEnv.ToTNexusSessionCleanup = cleanupPreviousSession
 
 local VERSION = "3.26"
