@@ -1,10 +1,10 @@
 {
-  "version": "3.23",
-  "build": "2026.11.21.03",
+  "version": "3.24",
+  "build": "2026.11.21.04",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.21.03",
-    "GeneralScripts": "2026.11.21.03"
+    "Loader": "2026.11.21.04",
+    "GeneralScripts": "2026.11.21.04"
   },
-  "notes": "Added selectable ESP visibility origin (Head, Torso, Camera), defaulting to Head, and persisted the selection in General Tools config."
+  "notes": "Added a General Tools Hitbox Expander with Body, Head and Torso targets and a 1.0x–4.0x local size preview. Changes are client-side only and do not alter server-authoritative hit detection."
 }
