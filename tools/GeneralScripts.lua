@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.21.05
+-- NEXUS_BUILD_ID: 2026.11.21.07
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -670,18 +670,32 @@ return function(config)
     end
     -- Client-side hitbox size preview. Changes are local to this client and do not
     -- alter server-authoritative hit detection in other experiences.
-    local hitbox = {enabled=false, target="Body", scale=2, originals={}, generation=0}
+    local hitbox = {enabled=false, target="Root", scale=2, teamCheck=false, originals={}, generation=0}
     local function isHitboxPart(part)
-        if not part:IsA("BasePart") or part.Name=="HumanoidRootPart" then return false end
+        if not part:IsA("BasePart") then return false end
+        if hitbox.target=="Root" then return part.Name=="HumanoidRootPart" end
+        if part.Name=="HumanoidRootPart" then return false end
         if hitbox.target=="Head" then return part.Name=="Head" end
         if hitbox.target=="Torso" then
             return part.Name=="Torso" or part.Name=="UpperTorso" or part.Name=="LowerTorso"
         end
         return true
     end
+    local function restoreHitboxPart(part, original)
+        if not part or not part.Parent or not original then return end
+        pcall(function()
+            part.Size=original.Size
+            if original.RootStyle then
+                part.Transparency=original.Transparency
+                part.Color=original.Color
+                part.Material=original.Material
+                part.CanCollide=original.CanCollide
+            end
+        end)
+    end
     local function restoreHitboxes()
         for part,original in pairs(hitbox.originals) do
-            if part and part.Parent then pcall(function() part.Size=original end) end
+            restoreHitboxPart(part,original)
         end
         table.clear(hitbox.originals)
     end
@@ -689,22 +703,40 @@ return function(config)
         if not hitbox.enabled then return end
         local seen={}
         for _,player in ipairs(Players:GetPlayers()) do
-            if player~=LocalPlayer and player.Character then
+            local sameTeam=hitbox.teamCheck and LocalPlayer.Team~=nil and player.Team==LocalPlayer.Team
+            if player~=LocalPlayer and player.Character and not sameTeam then
                 for _,part in ipairs(player.Character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        if isHitboxPart(part) then
-                            seen[part]=true
-                            if not hitbox.originals[part] then hitbox.originals[part]=part.Size end
-                            local original=hitbox.originals[part]
-                            pcall(function() part.Size=original*hitbox.scale end)
+                    if isHitboxPart(part) then
+                        seen[part]=true
+                        if not hitbox.originals[part] then
+                            hitbox.originals[part]={
+                                Size=part.Size,
+                                RootStyle=hitbox.target=="Root",
+                                Transparency=part.Transparency,
+                                Color=part.Color,
+                                Material=part.Material,
+                                CanCollide=part.CanCollide,
+                            }
                         end
+                        local original=hitbox.originals[part]
+                        pcall(function()
+                            part.Size=original.Size*hitbox.scale
+                            if original.RootStyle then
+                                -- Match the reference's visible, non-collidable root hitbox,
+                                -- but retain every original property for exact restoration.
+                                part.Transparency=0.9
+                                part.Color=Color3.fromRGB(12,12,12)
+                                part.Material=Enum.Material.Neon
+                                part.CanCollide=false
+                            end
+                        end)
                     end
                 end
             end
         end
         for part,original in pairs(hitbox.originals) do
             if not seen[part] then
-                if part and part.Parent then pcall(function() part.Size=original end) end
+                restoreHitboxPart(part,original)
                 hitbox.originals[part]=nil
             end
         end
@@ -1026,7 +1058,7 @@ return function(config)
                 toggle.MouseButton1Click:Connect(function() if hitbox.enabled then stopHitbox() else startHitbox() end end)
                 local panel=Instance.new("Frame")
                 panel.Position=UDim2.fromOffset(14,171)
-                panel.Size=UDim2.new(1,-28,0,190)
+                panel.Size=UDim2.new(1,-28,0,226)
                 panel.BackgroundColor3=PANEL
                 panel.BorderSizePixel=0
                 panel.Parent=dc
@@ -1036,7 +1068,7 @@ return function(config)
                 outline.Transparency=0.35
                 label(panel,"TARGET PART",UDim2.fromOffset(12,10),UDim2.new(1,-24,0,16),8,MUTED,Enum.Font.GothamBold)
                 local targetButtons={}
-                local targetOptions={"Body","Head","Torso"}
+                local targetOptions={"Body","Head","Torso","Root"}
                 local function updateTargetButtons()
                     for name,button in pairs(targetButtons) do
                         local chosen=hitbox.target==name
@@ -1045,7 +1077,7 @@ return function(config)
                     end
                 end
                 for index,name in ipairs(targetOptions) do
-                    local button=makeButton(panel,string.upper(name),UDim2.new((index-1)/3,12,0,32),UDim2.new(1/3,-16,0,30),PANEL3)
+                    local button=makeButton(panel,string.upper(name),UDim2.new((index-1)/4,12,0,32),UDim2.new(1/4,-16,0,30),PANEL3)
                     button.TextSize=8
                     targetButtons[name]=button
                     button.MouseButton1Click:Connect(function()
@@ -1057,7 +1089,7 @@ return function(config)
                     end)
                 end
                 updateTargetButtons()
-                label(panel,"SIZE MULTIPLIER  (1.0× – 4.0×)",UDim2.fromOffset(12,76),UDim2.new(1,-100,0,16),8,MUTED,Enum.Font.GothamBold)
+                label(panel,"SIZE MULTIPLIER  (1.0× – 8.0×)",UDim2.fromOffset(12,76),UDim2.new(1,-100,0,16),8,MUTED,Enum.Font.GothamBold)
                 local sizeBox=Instance.new("TextBox")
                 sizeBox.Position=UDim2.new(1,-76,0,70)
                 sizeBox.Size=UDim2.fromOffset(62,30)
@@ -1073,11 +1105,19 @@ return function(config)
                 sizeBox.FocusLost:Connect(function()
                     local value=tonumber((string.gsub(sizeBox.Text,"x","")))
                     if not value then sizeBox.Text=tostring(hitbox.scale).."x"; return end
-                    hitbox.scale=math.clamp(value,1,4)
+                    hitbox.scale=math.clamp(value,1,8)
                     sizeBox.Text=string.format("%.1fx",hitbox.scale)
                     if hitbox.enabled then restoreHitboxes(); applyHitboxes() end
                 end)
-                label(panel,"Changes are client-side only. Server hit detection is unchanged.",UDim2.fromOffset(12,116),UDim2.new(1,-24,0,45),7,MUTED,Enum.Font.Gotham)
+                local teamButton=makeButton(panel,hitbox.teamCheck and "TEAM CHECK: ON" or "TEAM CHECK: OFF",UDim2.fromOffset(12,146),UDim2.new(1,-24,0,29),hitbox.teamCheck and ACCENT_DARK or PANEL3)
+                teamButton.TextSize=8
+                teamButton.MouseButton1Click:Connect(function()
+                    hitbox.teamCheck=not hitbox.teamCheck
+                    teamButton.Text=hitbox.teamCheck and "TEAM CHECK: ON" or "TEAM CHECK: OFF"
+                    teamButton.BackgroundColor3=hitbox.teamCheck and ACCENT_DARK or PANEL3
+                    if hitbox.enabled then applyHitboxes() end
+                end)
+                label(panel,"Root mode uses a 15-stud-style expandable HRP with a translucent Neon visual. Teammates are skipped when Team Check is on. Client-side only; server hit detection may not change.",UDim2.fromOffset(12,182),UDim2.new(1,-24,0,38),7,MUTED,Enum.Font.Gotham)
                 dc.Destroying:Connect(function()
                     if hitbox.detailDot==dot then hitbox.detailDot=nil end
                     if hitbox.detailStatus and hitbox.detailStatus.Parent==sp then hitbox.detailStatus=nil end
