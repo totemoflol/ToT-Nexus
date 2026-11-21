@@ -1,6 +1,6 @@
 -- ==================================================================================
 -- ToT Nexus | Universal Loader + branded splash UI
--- NEXUS_BUILD_ID: 2026.11.21.06
+-- NEXUS_BUILD_ID: 2026.11.21.07
 -- Detects the current game, shows its Roblox icon, plays the boot sequence,
 -- then executes the game script. All network fetches run in parallel.
 -- ==================================================================================
@@ -56,8 +56,8 @@ end
 cleanupPreviousSession()
 NexusEnv.ToTNexusSessionCleanup = cleanupPreviousSession
 
-local VERSION = "3.26"
-local BUILD_ID = "2026.11.21.06"
+local VERSION = "3.27"
+local BUILD_ID = "2026.11.21.07"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
