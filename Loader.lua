@@ -1,6 +1,6 @@
 -- ==================================================================================
 -- ToT Nexus | Universal Loader + branded splash UI
--- NEXUS_BUILD_ID: 2026.11.21.04
+-- NEXUS_BUILD_ID: 2026.11.21.05
 -- Detects the current game, shows its Roblox icon, plays the boot sequence,
 -- then executes the game script. All network fetches run in parallel.
 -- ==================================================================================
@@ -12,8 +12,8 @@ local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 
-local VERSION = "3.24"
-local BUILD_ID = "2026.11.21.04"
+local VERSION = "3.25"
+local BUILD_ID = "2026.11.21.05"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
@@ -95,6 +95,19 @@ NexusEnv.ToTNexusStopScript = function(uniqid)
     if current then
         registry[uniqid] = nil
         if type(current.cleanup) == "function" then pcall(current.cleanup) end
+    end
+end
+
+-- Closing the library stops every game module started from its catalog.
+local function cleanupActiveGameModules()
+    local ids = {}
+    for uniqid in pairs(NexusEnv.ToTNexusScriptRegistry) do
+        if string.sub(uniqid, 1, 5) == "game-" then
+            ids[#ids + 1] = uniqid
+        end
+    end
+    for _, uniqid in ipairs(ids) do
+        NexusEnv.ToTNexusStopScript(uniqid)
     end
 end
 
@@ -838,6 +851,7 @@ if not entry then
             mountLibrary({
                 games = catalog,
                 currentGameId = current.Id,
+                onClose = cleanupActiveGameModules,
                 onExecute = function(selected)
                     local targetEntry
                     for placeId, candidate in pairs(Games) do
@@ -1102,6 +1116,7 @@ if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
         loadstring(librarySource)({
             games = catalog,
             currentGameId = currentGame.Id,
+            onClose = cleanupActiveGameModules,
             onExecute = executeSelectedGame,
             version = VERSION,
             buildId = BUILD_ID,
