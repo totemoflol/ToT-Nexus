@@ -254,9 +254,6 @@ return function(config)
                 local ok, err = pcall(config.onClose)
                 if not ok then warn("[ToT Nexus] Close cleanup failed: " .. tostring(err)) end
             end
-            stopHitbox()
-            stopEsp(true)
-            stopFullbright(true)
             tween(scale, 0.18, {Scale = 0.95}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
             tween(shade, 0.18, {BackgroundTransparency = 1})
             task.wait(0.19)
