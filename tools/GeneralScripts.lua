@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.21.03
+-- NEXUS_BUILD_ID: 2026.11.21.04
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -662,6 +662,77 @@ return function(config)
         task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then applyPlayer(p); visibility(p) end end; task.wait(1/activeEsp.updateRate) end end)
         task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do task.wait(7); if activeEsp.enabled and activeEsp.generation==gen then refresh() end end end)
     end
+    -- Client-side hitbox size preview. Changes are local to this client and do not
+    -- alter server-authoritative hit detection in other experiences.
+    local hitbox = {enabled=false, target="Body", scale=2, originals={}, generation=0}
+    local function isHitboxPart(part)
+        if not part:IsA("BasePart") or part.Name=="HumanoidRootPart" then return false end
+        if hitbox.target=="Head" then return part.Name=="Head" end
+        if hitbox.target=="Torso" then
+            return part.Name=="Torso" or part.Name=="UpperTorso" or part.Name=="LowerTorso"
+        end
+        return true
+    end
+    local function restoreHitboxes()
+        for part,original in pairs(hitbox.originals) do
+            if part and part.Parent then pcall(function() part.Size=original end) end
+        end
+        table.clear(hitbox.originals)
+    end
+    local function applyHitboxes()
+        if not hitbox.enabled then return end
+        local seen={}
+        for _,player in ipairs(Players:GetPlayers()) do
+            if player~=LocalPlayer and player.Character then
+                for _,part in ipairs(player.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        if isHitboxPart(part) then
+                            seen[part]=true
+                            if not hitbox.originals[part] then hitbox.originals[part]=part.Size end
+                            local original=hitbox.originals[part]
+                            pcall(function() part.Size=original*hitbox.scale end)
+                        end
+                    end
+                end
+            end
+        end
+        for part,original in pairs(hitbox.originals) do
+            if not seen[part] then
+                if part and part.Parent then pcall(function() part.Size=original end) end
+                hitbox.originals[part]=nil
+            end
+        end
+    end
+    local function stopHitbox()
+        if not hitbox.enabled then restoreHitboxes(); return end
+        hitbox.enabled=false
+        hitbox.generation=hitbox.generation+1
+        restoreHitboxes()
+        if hitbox.statusDot and hitbox.statusDot.Parent then hitbox.statusDot.BackgroundColor3=RED end
+        if hitbox.statusText and hitbox.statusText.Parent then hitbox.statusText.Text="OFF"; hitbox.statusText.TextColor3=MUTED end
+        if hitbox.detailStatus and hitbox.detailStatus.Parent then hitbox.detailStatus.Text="HITBOX PREVIEW IS OFF"; hitbox.detailStatus.TextColor3=MUTED end
+        if hitbox.detailDot and hitbox.detailDot.Parent then hitbox.detailDot.BackgroundColor3=RED end
+        if hitbox.toggleButton and hitbox.toggleButton.Parent then hitbox.toggleButton.Text="▶   ENABLE HITBOX PREVIEW"; hitbox.toggleButton.BackgroundColor3=ACCENT_DARK end
+    end
+    local function startHitbox()
+        if hitbox.enabled then return end
+        hitbox.enabled=true
+        hitbox.generation=hitbox.generation+1
+        local generation=hitbox.generation
+        applyHitboxes()
+        if hitbox.statusDot and hitbox.statusDot.Parent then hitbox.statusDot.BackgroundColor3=GREEN end
+        if hitbox.statusText and hitbox.statusText.Parent then hitbox.statusText.Text="ACTIVE"; hitbox.statusText.TextColor3=GREEN end
+        if hitbox.detailStatus and hitbox.detailStatus.Parent then hitbox.detailStatus.Text="LOCAL HITBOX PREVIEW IS ACTIVE"; hitbox.detailStatus.TextColor3=GREEN end
+        if hitbox.detailDot and hitbox.detailDot.Parent then hitbox.detailDot.BackgroundColor3=GREEN end
+        if hitbox.toggleButton and hitbox.toggleButton.Parent then hitbox.toggleButton.Text="■   DISABLE HITBOX PREVIEW"; hitbox.toggleButton.BackgroundColor3=Color3.fromRGB(55,43,83) end
+        task.spawn(function()
+            while hitbox.enabled and hitbox.generation==generation and gui.Parent do
+                applyHitboxes()
+                task.wait(1)
+            end
+        end)
+    end
+    gui.Destroying:Connect(stopHitbox)
     gui.Destroying:Connect(function() stopEsp(true) end)
     gui.Destroying:Connect(function() stopFullbright(true) end)
 
@@ -746,7 +817,7 @@ return function(config)
             local content = newContent()
             label(content, "GENERAL TOOLS", UDim2.fromOffset(17, 17), UDim2.new(1, -34, 0, 22), 16, TEXT, Enum.Font.GothamBold)
             label(content, "Small utilities that work independently of game modules", UDim2.fromOffset(18, 41), UDim2.new(1, -36, 0, 26), 8, MUTED, Enum.Font.Gotham)
-            local count = label(content, "2 TOOLS", UDim2.new(0, 18, 0, 76), UDim2.new(0, 70, 0, 13), 8, CYAN, Enum.Font.GothamBold)
+            local count = label(content, "3 TOOLS", UDim2.new(0, 18, 0, 76), UDim2.new(0, 70, 0, 13), 8, CYAN, Enum.Font.GothamBold)
             saveStatusLabel = label(content, configStorageAvailable and "AUTO-SAVE READY" or "SESSION ONLY · NO FILE API", UDim2.new(0, 91, 0, 76), UDim2.new(1, -190, 0, 13), 7, configStorageAvailable and GREEN or RED, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
             saveButton = makeButton(content, "SAVE NOW", UDim2.new(1, -91, 0, 69), UDim2.fromOffset(77, 25), PANEL3)
             saveButton.TextSize = 7
@@ -879,6 +950,139 @@ return function(config)
                 dc.Destroying:Connect(function() for _,c in ipairs(cons) do pcall(function() c:Disconnect() end) end; if activeEsp.detailStatus and activeEsp.detailStatus.Parent==sp then activeEsp.detailStatus=nil end; if activeEsp.detailDot==dot then activeEsp.detailDot=nil end; if activeEsp.toggleButton==toggle then activeEsp.toggleButton=nil end end)
                 updateEspUI()
             end)
+            -- Hitbox expander card.
+            local hitboxCard=Instance.new("TextButton")
+            hitboxCard.Name="Tool_HitboxExpander"
+            hitboxCard.Position=UDim2.fromOffset(14,291)
+            hitboxCard.Size=UDim2.new(1,-28,0,86)
+            hitboxCard.BackgroundColor3=PANEL2
+            hitboxCard.BorderSizePixel=0
+            hitboxCard.Text=""
+            hitboxCard.AutoButtonColor=false
+            hitboxCard.Parent=content
+            corner(hitboxCard,12)
+            local hitboxStroke=Instance.new("UIStroke",hitboxCard)
+            hitboxStroke.Color=Color3.fromRGB(57,65,92)
+            hitboxStroke.Transparency=0.42
+            local hitboxIcon=Instance.new("Frame")
+            hitboxIcon.Position=UDim2.fromOffset(11,11)
+            hitboxIcon.Size=UDim2.fromOffset(64,64)
+            hitboxIcon.BackgroundColor3=Color3.fromRGB(39,35,75)
+            hitboxIcon.BorderSizePixel=0
+            hitboxIcon.Parent=hitboxCard
+            corner(hitboxIcon,12)
+            local hitboxGradient=Instance.new("UIGradient")
+            hitboxGradient.Color=ColorSequence.new(Color3.fromRGB(121,78,207),Color3.fromRGB(28,147,166))
+            hitboxGradient.Rotation=35
+            hitboxGradient.Parent=hitboxIcon
+            label(hitboxIcon,"▣",UDim2.fromScale(0,0),UDim2.fromScale(1,1),31,CYAN,Enum.Font.GothamBold,Enum.TextXAlignment.Center)
+            label(hitboxCard,"HITBOX EXPANDER",UDim2.fromOffset(87,14),UDim2.new(1,-124,0,20),11,TEXT,Enum.Font.GothamBold)
+            label(hitboxCard,"Body · head · torso size preview",UDim2.fromOffset(87,37),UDim2.new(1,-124,0,17),7,MUTED,Enum.Font.Gotham)
+            local hbDot=Instance.new("Frame")
+            hbDot.AnchorPoint=Vector2.new(0.5,0.5)
+            hbDot.Position=UDim2.new(1,-23,0.5,0)
+            hbDot.Size=UDim2.fromOffset(9,9)
+            hbDot.BackgroundColor3=hitbox.enabled and GREEN or RED
+            hbDot.BorderSizePixel=0
+            hbDot.Parent=hitboxCard
+            corner(hbDot,8)
+            hitbox.statusDot=hbDot
+            hitbox.statusText=label(hitboxCard,hitbox.enabled and "ACTIVE" or "OFF",UDim2.new(1,-65,0,0),UDim2.fromOffset(34,86),7,hitbox.enabled and GREEN or MUTED,Enum.Font.GothamBold,Enum.TextXAlignment.Right)
+            hitboxCard.MouseEnter:Connect(function() tween(hitboxCard,0.15,{BackgroundColor3=PANEL3}); tween(hitboxStroke,0.15,{Transparency=0.05,Color=ACCENT}) end)
+            hitboxCard.MouseLeave:Connect(function() tween(hitboxCard,0.15,{BackgroundColor3=PANEL2}); tween(hitboxStroke,0.15,{Transparency=0.42,Color=Color3.fromRGB(57,65,92)}) end)
+            hitboxCard.MouseButton1Click:Connect(function()
+                local dc=newContent()
+                local back=makeButton(dc,"‹",UDim2.new(1,-49,0,12),UDim2.fromOffset(34,30),PANEL3)
+                back.TextSize=25
+                back.TextColor3=CYAN
+                back.MouseButton1Click:Connect(showToolList)
+                label(dc,"HITBOX EXPANDER",UDim2.fromOffset(16,17),UDim2.new(1,-78,0,22),14,TEXT,Enum.Font.GothamBold)
+                label(dc,"LOCAL CHARACTER PART SIZE PREVIEW",UDim2.fromOffset(17,42),UDim2.new(1,-34,0,13),7,CYAN,Enum.Font.GothamBold)
+                local sp=Instance.new("Frame")
+                sp.Position=UDim2.fromOffset(14,68)
+                sp.Size=UDim2.new(1,-28,0,44)
+                sp.BackgroundColor3=PANEL2
+                sp.BorderSizePixel=0
+                sp.Parent=dc
+                corner(sp,9)
+                local dot=Instance.new("Frame")
+                dot.Position=UDim2.fromOffset(12,17)
+                dot.Size=UDim2.fromOffset(9,9)
+                dot.BackgroundColor3=hitbox.enabled and GREEN or RED
+                dot.BorderSizePixel=0
+                dot.Parent=sp
+                corner(dot,8)
+                hitbox.detailDot=dot
+                hitbox.detailStatus=label(sp,"",UDim2.fromOffset(30,0),UDim2.new(1,-42,1,0),8,MUTED,Enum.Font.GothamBold)
+                local toggle=makeButton(dc,hitbox.enabled and "■   DISABLE HITBOX PREVIEW" or "▶   ENABLE HITBOX PREVIEW",UDim2.fromOffset(14,122),UDim2.new(1,-28,0,38),ACCENT_DARK)
+                toggle.TextSize=9
+                hitbox.toggleButton=toggle
+                toggle.MouseButton1Click:Connect(function() if hitbox.enabled then stopHitbox() else startHitbox() end end)
+                local panel=Instance.new("Frame")
+                panel.Position=UDim2.fromOffset(14,171)
+                panel.Size=UDim2.new(1,-28,0,190)
+                panel.BackgroundColor3=PANEL
+                panel.BorderSizePixel=0
+                panel.Parent=dc
+                corner(panel,11)
+                local outline=Instance.new("UIStroke",panel)
+                outline.Color=Color3.fromRGB(48,54,80)
+                outline.Transparency=0.35
+                label(panel,"TARGET PART",UDim2.fromOffset(12,10),UDim2.new(1,-24,0,16),8,MUTED,Enum.Font.GothamBold)
+                local targetButtons={}
+                local targetOptions={"Body","Head","Torso"}
+                local function updateTargetButtons()
+                    for name,button in pairs(targetButtons) do
+                        local chosen=hitbox.target==name
+                        button.BackgroundColor3=chosen and ACCENT_DARK or PANEL3
+                        button.TextColor3=chosen and TEXT or MUTED
+                    end
+                end
+                for index,name in ipairs(targetOptions) do
+                    local button=makeButton(panel,string.upper(name),UDim2.new((index-1)/3,12,0,32),UDim2.new(1/3,-16,0,30),PANEL3)
+                    button.TextSize=8
+                    targetButtons[name]=button
+                    button.MouseButton1Click:Connect(function()
+                        if hitbox.target==name then return end
+                        restoreHitboxes()
+                        hitbox.target=name
+                        updateTargetButtons()
+                        if hitbox.enabled then applyHitboxes() end
+                    end)
+                end
+                updateTargetButtons()
+                label(panel,"SIZE MULTIPLIER  (1.0× – 4.0×)",UDim2.fromOffset(12,76),UDim2.new(1,-100,0,16),8,MUTED,Enum.Font.GothamBold)
+                local sizeBox=Instance.new("TextBox")
+                sizeBox.Position=UDim2.new(1,-76,0,70)
+                sizeBox.Size=UDim2.fromOffset(62,30)
+                sizeBox.BackgroundColor3=PANEL3
+                sizeBox.BorderSizePixel=0
+                sizeBox.Text=tostring(hitbox.scale).."x"
+                sizeBox.ClearTextOnFocus=false
+                sizeBox.Font=Enum.Font.GothamBold
+                sizeBox.TextSize=11
+                sizeBox.TextColor3=TEXT
+                sizeBox.Parent=panel
+                corner(sizeBox,7)
+                sizeBox.FocusLost:Connect(function()
+                    local value=tonumber((string.gsub(sizeBox.Text,"x","")))
+                    if not value then sizeBox.Text=tostring(hitbox.scale).."x"; return end
+                    hitbox.scale=math.clamp(value,1,4)
+                    sizeBox.Text=string.format("%.1fx",hitbox.scale)
+                    if hitbox.enabled then restoreHitboxes(); applyHitboxes() end
+                end)
+                label(panel,"Changes are client-side only. Server hit detection is unchanged.",UDim2.fromOffset(12,116),UDim2.new(1,-24,0,45),7,MUTED,Enum.Font.Gotham)
+                dc.Destroying:Connect(function()
+                    if hitbox.detailDot==dot then hitbox.detailDot=nil end
+                    if hitbox.detailStatus and hitbox.detailStatus.Parent==sp then hitbox.detailStatus=nil end
+                    if hitbox.toggleButton==toggle then hitbox.toggleButton=nil end
+                end)
+                if hitbox.detailStatus then
+                    hitbox.detailStatus.Text=hitbox.enabled and "LOCAL HITBOX PREVIEW IS ACTIVE" or "HITBOX PREVIEW IS OFF"
+                    hitbox.detailStatus.TextColor3=hitbox.enabled and GREEN or MUTED
+                end
+            end)
+
             -- Fullbright tool card
             local fullbrightCard=Instance.new("TextButton")
             fullbrightCard.Name="Tool_Fullbright"
