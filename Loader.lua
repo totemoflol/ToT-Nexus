@@ -11,9 +11,52 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
+local NexusEnv = getgenv()
 
-local VERSION = "3.25"
-local BUILD_ID = "2026.11.21.05"
+-- A fresh execution owns the UI session. Tear down the previous execution before
+-- starting any new fetches or creating another splash/library.
+local previousSessionCleanup = NexusEnv.ToTNexusSessionCleanup
+if type(previousSessionCleanup) == "function" then
+    pcall(previousSessionCleanup)
+end
+
+local sessionToken = {}
+NexusEnv.ToTNexusSessionToken = sessionToken
+local function isSessionCurrent()
+    return NexusEnv.ToTNexusSessionToken == sessionToken
+end
+
+local function cleanupPreviousSession()
+    local registry = NexusEnv.ToTNexusScriptRegistry
+    if type(registry) == "table" then
+        local ids = {}
+        for uniqid in pairs(registry) do
+            if string.sub(uniqid, 1, 5) == "game-" then
+                ids[#ids + 1] = uniqid
+            end
+        end
+        for _, uniqid in ipairs(ids) do
+            local current = registry[uniqid]
+            registry[uniqid] = nil
+            if current and type(current.cleanup) == "function" then
+                pcall(current.cleanup)
+            end
+        end
+    end
+
+    local uiParent
+    pcall(function() uiParent = (gethui and gethui()) or game:GetService("CoreGui") end)
+    if uiParent then
+        for _, guiName in ipairs({"ToTNexusGeneralScripts", "ToTNexusLoader"}) do
+            local oldGui = uiParent:FindFirstChild(guiName)
+            if oldGui then pcall(function() oldGui:Destroy() end) end
+        end
+    end
+end
+NexusEnv.ToTNexusSessionCleanup = cleanupPreviousSession
+
+local VERSION = "3.26"
+local BUILD_ID = "2026.11.21.06"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
@@ -31,7 +74,9 @@ local function fetchLatestVersion()
     return nil
 end
 
+if not isSessionCurrent() then return end
 local remoteVersion = fetchLatestVersion()
+if not isSessionCurrent() then return end
 local componentStatuses = {
     Loader = "UNKNOWN",
     GeneralScripts = "UNKNOWN",
@@ -73,7 +118,6 @@ end
 
 -- Per-script lifecycle registry. Re-running a uniqid cleans up its previous instance;
 -- different uniqids remain independent and may run at the same time.
-local NexusEnv = getgenv()
 NexusEnv.ToTNexusScriptRegistry = NexusEnv.ToTNexusScriptRegistry or {}
 NexusEnv.ToTNexusStartScript = function(uniqid, cleanup)
     assert(type(uniqid) == "string" and uniqid ~= "", "A stable script uniqid is required")
@@ -840,6 +884,7 @@ if not entry then
         return game:HttpGet(cacheBusted(BASE .. "/tools/GeneralScripts.lua"))
     end)
     local libraryMounted = false
+    if not isSessionCurrent() then return end
     if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
         inspectComponentSource("GeneralScripts", librarySource)
         refreshOverallVersionStatus()
@@ -961,6 +1006,8 @@ while not (done.gameWl and done.globalWl) and os.clock() - joinStart < 3 do
     task.wait(0.05)
 end
 
+if not isSessionCurrent() then return end
+
 local whitelistedUser = false
 if entry.GatedFeatures and #entry.GatedFeatures > 0 then
     whitelistedUser = type(gameWl) == "table"
@@ -1008,6 +1055,7 @@ while not scriptSrc and not fetchErr and waited < 15 do
     waited = waited + 0.05
 end
 
+if not isSessionCurrent() then return end
 if not scriptSrc then
     print("[ToT Nexus] Failed to fetch game script: " .. tostring(fetchErr))
     if splash then
@@ -1120,6 +1168,7 @@ end
 local okLibrary, librarySource = pcall(function()
     return game:HttpGet(BASE .. "/tools/GeneralScripts.lua")
 end)
+if not isSessionCurrent() then return end
 if okLibrary and type(librarySource) == "string" and #librarySource > 100 then
     inspectComponentSource("GeneralScripts", librarySource)
     refreshOverallVersionStatus()
