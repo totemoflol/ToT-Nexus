@@ -1,10 +1,10 @@
 {
-  "version": "3.24",
-  "build": "2026.11.21.04",
+  "version": "3.25",
+  "build": "2026.11.21.05",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.21.04",
-    "GeneralScripts": "2026.11.21.04"
+    "Loader": "2026.11.21.05",
+    "GeneralScripts": "2026.11.21.05"
   },
-  "notes": "Added a General Tools Hitbox Expander with Body, Head and Torso targets and a 1.0x–4.0x local size preview. Changes are client-side only and do not alter server-authoritative hit detection."
+  "notes": "Closing the library now runs the close cleanup hook, stops catalog game modules, and destroys active General Tools effects (ESP, Fullbright and Hitbox Expander)."
 }
