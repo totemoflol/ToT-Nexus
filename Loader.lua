@@ -1,6 +1,6 @@
 -- ==================================================================================
 -- ToT Nexus | Universal Loader + branded splash UI
--- NEXUS_BUILD_ID: 2026.11.20.13
+-- NEXUS_BUILD_ID: 2026.11.21.02
 -- Detects the current game, shows its Roblox icon, plays the boot sequence,
 -- then executes the game script. All network fetches run in parallel.
 -- ==================================================================================
@@ -12,8 +12,8 @@ local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 
-local VERSION = "3.21"
-local BUILD_ID = "2026.11.21.01"
+local VERSION = "3.22"
+local BUILD_ID = "2026.11.21.02"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
