@@ -670,7 +670,7 @@ return function(config)
     end
     -- Client-side hitbox size preview. Changes are local to this client and do not
     -- alter server-authoritative hit detection in other experiences.
-    local hitbox = {enabled=false, target="Root", scale=2, teamCheck=false, originals={}, generation=0}
+    local hitbox = {enabled=false, target="Root", scale=2, rootSize=15, teamCheck=false, originals={}, generation=0}
     local function isHitboxPart(part)
         if not part:IsA("BasePart") then return false end
         if hitbox.target=="Root" then return part.Name=="HumanoidRootPart" end
@@ -720,7 +720,7 @@ return function(config)
                         end
                         local original=hitbox.originals[part]
                         pcall(function()
-                            part.Size=original.Size*hitbox.scale
+                            part.Size=original.RootStyle and Vector3.new(hitbox.rootSize,hitbox.rootSize,hitbox.rootSize) or original.Size*hitbox.scale
                             if original.RootStyle then
                                 -- Match the reference's visible, non-collidable root hitbox,
                                 -- but retain every original property for exact restoration.
@@ -1068,6 +1068,7 @@ return function(config)
                 outline.Transparency=0.35
                 label(panel,"TARGET PART",UDim2.fromOffset(12,10),UDim2.new(1,-24,0,16),8,MUTED,Enum.Font.GothamBold)
                 local targetButtons={}
+                local sizeBox
                 local targetOptions={"Body","Head","Torso","Root"}
                 local function updateTargetButtons()
                     for name,button in pairs(targetButtons) do
@@ -1085,17 +1086,18 @@ return function(config)
                         restoreHitboxes()
                         hitbox.target=name
                         updateTargetButtons()
+                        if sizeBox then sizeBox.Text=hitbox.target=="Root" and tostring(hitbox.rootSize).."s" or tostring(hitbox.scale).."x" end
                         if hitbox.enabled then applyHitboxes() end
                     end)
                 end
                 updateTargetButtons()
-                label(panel,"SIZE MULTIPLIER  (1.0× – 8.0×)",UDim2.fromOffset(12,76),UDim2.new(1,-100,0,16),8,MUTED,Enum.Font.GothamBold)
-                local sizeBox=Instance.new("TextBox")
+                label(panel,"SIZE MULTIPLIER / ROOT SIZE (STUDS)",UDim2.fromOffset(12,76),UDim2.new(1,-100,0,16),8,MUTED,Enum.Font.GothamBold)
+                sizeBox=Instance.new("TextBox")
                 sizeBox.Position=UDim2.new(1,-76,0,70)
                 sizeBox.Size=UDim2.fromOffset(62,30)
                 sizeBox.BackgroundColor3=PANEL3
                 sizeBox.BorderSizePixel=0
-                sizeBox.Text=tostring(hitbox.scale).."x"
+                sizeBox.Text=hitbox.target=="Root" and tostring(hitbox.rootSize).."s" or tostring(hitbox.scale).."x"
                 sizeBox.ClearTextOnFocus=false
                 sizeBox.Font=Enum.Font.GothamBold
                 sizeBox.TextSize=11
@@ -1103,10 +1105,15 @@ return function(config)
                 sizeBox.Parent=panel
                 corner(sizeBox,7)
                 sizeBox.FocusLost:Connect(function()
-                    local value=tonumber((string.gsub(sizeBox.Text,"x","")))
-                    if not value then sizeBox.Text=tostring(hitbox.scale).."x"; return end
-                    hitbox.scale=math.clamp(value,1,8)
-                    sizeBox.Text=string.format("%.1fx",hitbox.scale)
+                    local value=tonumber((string.gsub(string.gsub(sizeBox.Text,"x",""),"s","")))
+                    if not value then sizeBox.Text=hitbox.target=="Root" and tostring(hitbox.rootSize).."s" or tostring(hitbox.scale).."x"; return end
+                    if hitbox.target=="Root" then
+                        hitbox.rootSize=math.clamp(value,3,20)
+                        sizeBox.Text=string.format("%.1fs",hitbox.rootSize)
+                    else
+                        hitbox.scale=math.clamp(value,1,8)
+                        sizeBox.Text=string.format("%.1fx",hitbox.scale)
+                    end
                     if hitbox.enabled then restoreHitboxes(); applyHitboxes() end
                 end)
                 local teamButton=makeButton(panel,hitbox.teamCheck and "TEAM CHECK: ON" or "TEAM CHECK: OFF",UDim2.fromOffset(12,146),UDim2.new(1,-24,0,29),hitbox.teamCheck and ACCENT_DARK or PANEL3)
