@@ -1,10 +1,10 @@
 {
-  "version": "3.26",
-  "build": "2026.11.21.06",
+  "version": "3.27",
+  "build": "2026.11.21.07",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.21.06",
-    "GeneralScripts": "2026.11.21.05"
+    "Loader": "2026.11.21.07",
+    "GeneralScripts": "2026.11.21.07"
   },
-  "notes": "Re-executing the loader now cleans up the previous library UI, active General Tools effects, and registered game modules before mounting the new session."
+  "notes": "Hitbox Expander now supports HumanoidRootPart mode with saved visual-property restoration, optional teammate filtering, and expanded sizing controls."
 }
