@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.21.04
+-- NEXUS_BUILD_ID: 2026.11.21.05
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -248,6 +248,15 @@ return function(config)
             if closeConfirm then closeConfirm:Destroy(); closeConfirm = nil end
         end)
         confirm.MouseButton1Click:Connect(function()
+            -- Stop every library-owned feature before removing the interface.
+            -- Destroying handlers remain as a second cleanup safeguard.
+            if type(config.onClose) == "function" then
+                local ok, err = pcall(config.onClose)
+                if not ok then warn("[ToT Nexus] Close cleanup failed: " .. tostring(err)) end
+            end
+            stopHitbox()
+            stopEsp(true)
+            stopFullbright(true)
             tween(scale, 0.18, {Scale = 0.95}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
             tween(shade, 0.18, {BackgroundTransparency = 1})
             task.wait(0.19)
