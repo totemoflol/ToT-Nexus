@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.21.02
+-- NEXUS_BUILD_ID: 2026.11.21.03
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -548,10 +548,10 @@ return function(config)
         if saveConfig then saveConfig() end
     end
 
-    local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=math.clamp(math.floor(tonumber(loadedConfig.espUpdateRate) or 10),1,60),generation=0}
+    local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=math.clamp(math.floor(tonumber(loadedConfig.espUpdateRate) or 10),1,60),visibilityOrigin=(loadedConfig.espVisibilityOrigin=="Torso" or loadedConfig.espVisibilityOrigin=="Camera") and loadedConfig.espVisibilityOrigin or "Head",generation=0}
     saveConfig = function()
         if not configStorageAvailable then updateSaveStatus("SESSION ONLY", RED); return false end
-        local snapshot = {schema=1, espEnabled=activeEsp.enabled, espUpdateRate=activeEsp.updateRate, fullbrightEnabled=fullbright.enabled}
+        local snapshot = {schema=1, espEnabled=activeEsp.enabled, espUpdateRate=activeEsp.updateRate, espVisibilityOrigin=activeEsp.visibilityOrigin, fullbrightEnabled=fullbright.enabled}
         local ok, err = pcall(function()
             if type(isfolder) == "function" and not isfolder(CONFIG_FOLDER) and type(makefolder) == "function" then makefolder(CONFIG_FOLDER) end
             writefile(CONFIG_PATH, HttpService:JSONEncode(snapshot))
@@ -619,8 +619,19 @@ return function(config)
         local r=activeEsp.highlights[p]; if not activeEsp.enabled or p==LocalPlayer or not r or not r.character or not r.character.Parent then return end
         if ally(p) then for _,i in ipairs(r.items) do colorPart(i,EC.Ally) end; return end
         local cam=workspace.CurrentCamera; if not cam then return end
-        local origin=cam.CFrame.Position; local params=RaycastParams.new(); params.FilterType=Enum.RaycastFilterType.Exclude; params.IgnoreWater=true
-        for _,i in ipairs(r.items) do if i.part.Parent and i.highlight.Parent then local ex=LocalPlayer.Character and {LocalPlayer.Character} or {}; colorPart(i,canSee(origin,i.part,r.character,params,ex) and EC.Visible or EC.Hidden) end end
+        local character=LocalPlayer.Character
+        local origin=cam.CFrame.Position
+        if character then
+            if activeEsp.visibilityOrigin=="Head" then
+                local head=character:FindFirstChild("Head")
+                if head and head:IsA("BasePart") then origin=head.Position end
+            elseif activeEsp.visibilityOrigin=="Torso" then
+                local torso=character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso") or character:FindFirstChild("HumanoidRootPart")
+                if torso and torso:IsA("BasePart") then origin=torso.Position end
+            end
+        end
+        local params=RaycastParams.new(); params.FilterType=Enum.RaycastFilterType.Exclude; params.IgnoreWater=true
+        for _,i in ipairs(r.items) do if i.part.Parent and i.highlight.Parent then local ex=character and {character} or {}; colorPart(i,canSee(origin,i.part,r.character,params,ex) and EC.Visible or EC.Hidden) end end
     end
     local function refresh() for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then applyPlayer(p) end end end
     local function untrack(p) clearPlayer(p); for _,c in ipairs(activeEsp.playerConnections[p] or {}) do pcall(function() c:Disconnect() end) end; activeEsp.playerConnections[p]=nil end
@@ -822,7 +833,7 @@ return function(config)
                 activeEsp.detailStatus=label(sp,"",UDim2.fromOffset(30,0),UDim2.new(1,-42,1,0),8,MUTED,Enum.Font.GothamBold)
                 local toggle=makeButton(dc,activeEsp.enabled and "■   DISABLE ESP" or "▶   ENABLE ESP",UDim2.fromOffset(14,122),UDim2.new(1,-28,0,38),ACCENT_DARK); toggle.TextSize=10; activeEsp.toggleButton=toggle
                 toggle.MouseButton1Click:Connect(function() if activeEsp.enabled then stopEsp() else startEsp() end end)
-                local panel=Instance.new("Frame"); panel.Position=UDim2.fromOffset(14,171); panel.Size=UDim2.new(1,-28,0,144); panel.BackgroundColor3=PANEL; panel.BorderSizePixel=0; panel.Parent=dc; corner(panel,11)
+                local panel=Instance.new("Frame"); panel.Position=UDim2.fromOffset(14,171); panel.Size=UDim2.new(1,-28,0,205); panel.BackgroundColor3=PANEL; panel.BorderSizePixel=0; panel.Parent=dc; corner(panel,11)
                 local outline=Instance.new("UIStroke",panel); outline.Color=Color3.fromRGB(48,54,80); outline.Transparency=0.35
                 label(panel,"VISIBILITY CHECK RATE",UDim2.fromOffset(12,10),UDim2.new(1,-24,0,16),8,MUTED,Enum.Font.GothamBold)
                 label(panel,"Higher values update more frequently but use more CPU.",UDim2.fromOffset(12,29),UDim2.new(1,-24,0,25),7,MUTED,Enum.Font.Gotham)
@@ -842,6 +853,29 @@ return function(config)
                 bind(UserInputService.TouchMoved,dragMove)
                 bind(UserInputService.InputEnded,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
                 bind(box.FocusLost,function() local n=tonumber(box.Text); if n then setRate(n) else box.Text=tostring(activeEsp.updateRate) end end)
+                label(panel,"VISIBILITY ORIGIN",UDim2.fromOffset(12,119),UDim2.new(1,-24,0,14),8,MUTED,Enum.Font.GothamBold)
+                local originButtons={}
+                local originOptions={"Head","Torso","Camera"}
+                local function updateOriginButtons()
+                    for name,button in pairs(originButtons) do
+                        local selected=activeEsp.visibilityOrigin==name
+                        button.BackgroundColor3=selected and ACCENT_DARK or PANEL3
+                        button.TextColor3=selected and TEXT or MUTED
+                    end
+                end
+                for index,name in ipairs(originOptions) do
+                    local button=makeButton(panel,string.upper(name),UDim2.new((index-1)/3,12,0,141),UDim2.new(1/3,-16,0,29),PANEL3)
+                    button.TextSize=8
+                    originButtons[name]=button
+                    bind(button.MouseButton1Click,function()
+                        if activeEsp.visibilityOrigin==name then return end
+                        activeEsp.visibilityOrigin=name
+                        updateOriginButtons()
+                        queueConfigSave()
+                    end)
+                end
+                updateOriginButtons()
+                label(panel,"Visibility rays start from your selected body point.",UDim2.fromOffset(12,175),UDim2.new(1,-24,0,18),7,MUTED,Enum.Font.Gotham)
                 dc.Destroying:Connect(function() for _,c in ipairs(cons) do pcall(function() c:Disconnect() end) end; if activeEsp.detailStatus and activeEsp.detailStatus.Parent==sp then activeEsp.detailStatus=nil end; if activeEsp.detailDot==dot then activeEsp.detailDot=nil end; if activeEsp.toggleButton==toggle then activeEsp.toggleButton=nil end end)
                 updateEspUI()
             end)
