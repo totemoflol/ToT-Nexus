@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.20.13
+-- NEXUS_BUILD_ID: 2026.11.21.01
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -461,6 +461,65 @@ return function(config)
         ESP = "Player ESP with team and visibility colors",
     }
 
+    local Lighting = game:GetService("Lighting")
+    local fullbright = {enabled=false, original=nil, connections={}, applying=false}
+    local FULLBRIGHT_VALUES = {
+        Ambient = Color3.new(1,1,1),
+        OutdoorAmbient = Color3.new(1,1,1),
+        ColorShift_Top = Color3.new(1,1,1),
+        ColorShift_Bottom = Color3.new(1,1,1),
+        Brightness = 2,
+        ClockTime = 14,
+        FogEnd = 100000,
+        GlobalShadows = false,
+    }
+    local function updateFullbrightUI()
+        local on=fullbright.enabled
+        if fullbright.statusDot and fullbright.statusDot.Parent then fullbright.statusDot.BackgroundColor3=on and GREEN or RED end
+        if fullbright.statusText and fullbright.statusText.Parent then fullbright.statusText.Text=on and "ACTIVE" or "OFF"; fullbright.statusText.TextColor3=on and GREEN or MUTED end
+        if fullbright.detailDot and fullbright.detailDot.Parent then fullbright.detailDot.BackgroundColor3=on and GREEN or RED end
+        if fullbright.detailStatus and fullbright.detailStatus.Parent then fullbright.detailStatus.Text=on and "FULLBRIGHT IS ACTIVE" or "FULLBRIGHT IS OFF"; fullbright.detailStatus.TextColor3=on and GREEN or MUTED end
+        if fullbright.toggleButton and fullbright.toggleButton.Parent then fullbright.toggleButton.Text=on and "■   DISABLE FULLBRIGHT" or "☀   ENABLE FULLBRIGHT"; fullbright.toggleButton.BackgroundColor3=on and Color3.fromRGB(55,43,83) or ACCENT_DARK end
+    end
+    local function applyFullbright()
+        if not fullbright.enabled then return end
+        fullbright.applying=true
+        for property,value in pairs(FULLBRIGHT_VALUES) do
+            pcall(function() Lighting[property]=value end)
+        end
+        fullbright.applying=false
+    end
+    local function stopFullbright()
+        if not fullbright.enabled then return end
+        fullbright.enabled=false
+        for _,connection in ipairs(fullbright.connections) do pcall(function() connection:Disconnect() end) end
+        table.clear(fullbright.connections)
+        if fullbright.original then
+            for property,value in pairs(fullbright.original) do pcall(function() Lighting[property]=value end) end
+        end
+        fullbright.original=nil
+        updateFullbrightUI()
+    end
+    local function startFullbright()
+        if fullbright.enabled then return end
+        fullbright.original={}
+        for property in pairs(FULLBRIGHT_VALUES) do
+            local ok,value=pcall(function() return Lighting[property] end)
+            if ok then fullbright.original[property]=value end
+        end
+        fullbright.enabled=true
+        for property in pairs(FULLBRIGHT_VALUES) do
+            local ok,signal=pcall(function() return Lighting:GetPropertyChangedSignal(property) end)
+            if ok then
+                table.insert(fullbright.connections,signal:Connect(function()
+                    if fullbright.enabled and not fullbright.applying then applyFullbright() end
+                end))
+            end
+        end
+        applyFullbright()
+        updateFullbrightUI()
+    end
+
     local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=10,generation=0}
     local EC={Ally=Color3.fromRGB(75,165,255),Visible=Color3.fromRGB(91,231,151),Hidden=Color3.fromRGB(255,82,105)}
     local function updateEspUI()
@@ -544,6 +603,7 @@ return function(config)
         task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do task.wait(7); if activeEsp.enabled and activeEsp.generation==gen then refresh() end end end)
     end
     gui.Destroying:Connect(stopEsp)
+    gui.Destroying:Connect(stopFullbright)
 
     local function renderDetails(gameInfo)
         selected = gameInfo
@@ -622,7 +682,7 @@ return function(config)
             local content = newContent()
             label(content, "GENERAL TOOLS", UDim2.fromOffset(17, 17), UDim2.new(1, -34, 0, 22), 16, TEXT, Enum.Font.GothamBold)
             label(content, "Small utilities that work independently of game modules", UDim2.fromOffset(18, 41), UDim2.new(1, -36, 0, 26), 8, MUTED, Enum.Font.Gotham)
-            local count = label(content, "1 TOOL", UDim2.new(0, 18, 0, 76), UDim2.new(1, -36, 0, 13), 8, CYAN, Enum.Font.GothamBold)
+            local count = label(content, "2 TOOLS", UDim2.new(0, 18, 0, 76), UDim2.new(1, -36, 0, 13), 8, CYAN, Enum.Font.GothamBold)
 
             local toolCard = Instance.new("TextButton")
             toolCard.Name = "Tool_ESP"
@@ -727,6 +787,95 @@ return function(config)
                 bind(box.FocusLost,function() local n=tonumber(box.Text); if n then setRate(n) else box.Text=tostring(activeEsp.updateRate) end end)
                 dc.Destroying:Connect(function() for _,c in ipairs(cons) do pcall(function() c:Disconnect() end) end; if activeEsp.detailStatus and activeEsp.detailStatus.Parent==sp then activeEsp.detailStatus=nil end; if activeEsp.detailDot==dot then activeEsp.detailDot=nil end; if activeEsp.toggleButton==toggle then activeEsp.toggleButton=nil end end)
                 updateEspUI()
+            end)
+            -- Fullbright tool card
+            local fullbrightCard=Instance.new("TextButton")
+            fullbrightCard.Name="Tool_Fullbright"
+            fullbrightCard.Position=UDim2.fromOffset(14,195)
+            fullbrightCard.Size=UDim2.new(1,-28,0,86)
+            fullbrightCard.BackgroundColor3=PANEL2
+            fullbrightCard.BorderSizePixel=0
+            fullbrightCard.Text=""
+            fullbrightCard.AutoButtonColor=false
+            fullbrightCard.Parent=content
+            corner(fullbrightCard,12)
+            local fullbrightStroke=Instance.new("UIStroke",fullbrightCard)
+            fullbrightStroke.Color=Color3.fromRGB(57,65,92)
+            fullbrightStroke.Transparency=0.42
+            local sunIcon=Instance.new("Frame")
+            sunIcon.Position=UDim2.fromOffset(11,11)
+            sunIcon.Size=UDim2.fromOffset(64,64)
+            sunIcon.BackgroundColor3=Color3.fromRGB(54,45,91)
+            sunIcon.BorderSizePixel=0
+            sunIcon.Parent=fullbrightCard
+            corner(sunIcon,12)
+            local sunGradient=Instance.new("UIGradient")
+            sunGradient.Color=ColorSequence.new(Color3.fromRGB(119,83,194),Color3.fromRGB(31,125,151))
+            sunGradient.Rotation=35
+            sunGradient.Parent=sunIcon
+            local sun=label(sunIcon,"☀",UDim2.fromScale(0,0),UDim2.fromScale(1,1),32,Color3.fromRGB(255,239,173),Enum.Font.GothamBold,Enum.TextXAlignment.Center)
+            sun.TextYAlignment=Enum.TextYAlignment.Center
+            label(fullbrightCard,"FULLBRIGHT",UDim2.fromOffset(87,14),UDim2.new(1,-124,0,20),11,TEXT,Enum.Font.GothamBold)
+            label(fullbrightCard,"Brighter world · reduced shadows and fog",UDim2.fromOffset(87,37),UDim2.new(1,-124,0,17),7,MUTED,Enum.Font.Gotham)
+            local fbDot=Instance.new("Frame")
+            fbDot.AnchorPoint=Vector2.new(0.5,0.5)
+            fbDot.Position=UDim2.new(1,-23,0.5,0)
+            fbDot.Size=UDim2.fromOffset(9,9)
+            fbDot.BackgroundColor3=fullbright.enabled and GREEN or RED
+            fbDot.BorderSizePixel=0
+            fbDot.Parent=fullbrightCard
+            corner(fbDot,8)
+            fullbright.statusDot=fbDot
+            fullbright.statusText=label(fullbrightCard,fullbright.enabled and "ACTIVE" or "OFF",UDim2.new(1,-65,0,0),UDim2.fromOffset(34,86),7,fullbright.enabled and GREEN or MUTED,Enum.Font.GothamBold,Enum.TextXAlignment.Right)
+            fullbrightCard.MouseEnter:Connect(function() tween(fullbrightCard,0.15,{BackgroundColor3=PANEL3}); tween(fullbrightStroke,0.15,{Transparency=0.05,Color=ACCENT}) end)
+            fullbrightCard.MouseLeave:Connect(function() tween(fullbrightCard,0.15,{BackgroundColor3=PANEL2}); tween(fullbrightStroke,0.15,{Transparency=0.42,Color=Color3.fromRGB(57,65,92)}) end)
+            fullbrightCard.MouseButton1Click:Connect(function()
+                local dc=newContent()
+                local back=makeButton(dc,"‹",UDim2.new(1,-49,0,12),UDim2.fromOffset(34,30),PANEL3)
+                back.TextSize=25
+                back.TextColor3=CYAN
+                back.MouseButton1Click:Connect(showToolList)
+                label(dc,"FULLBRIGHT",UDim2.fromOffset(16,17),UDim2.new(1,-78,0,22),14,TEXT,Enum.Font.GothamBold)
+                label(dc,"WORLD LIGHTING ENHANCEMENT",UDim2.fromOffset(17,42),UDim2.new(1,-34,0,13),7,CYAN,Enum.Font.GothamBold)
+                local sp=Instance.new("Frame")
+                sp.Position=UDim2.fromOffset(14,68)
+                sp.Size=UDim2.new(1,-28,0,44)
+                sp.BackgroundColor3=PANEL2
+                sp.BorderSizePixel=0
+                sp.Parent=dc
+                corner(sp,9)
+                local dot=Instance.new("Frame")
+                dot.Position=UDim2.fromOffset(12,17)
+                dot.Size=UDim2.fromOffset(9,9)
+                dot.BackgroundColor3=fullbright.enabled and GREEN or RED
+                dot.BorderSizePixel=0
+                dot.Parent=sp
+                corner(dot,8)
+                fullbright.detailDot=dot
+                fullbright.detailStatus=label(sp,"",UDim2.fromOffset(30,0),UDim2.new(1,-42,1,0),8,MUTED,Enum.Font.GothamBold)
+                local toggle=makeButton(dc,fullbright.enabled and "■   DISABLE FULLBRIGHT" or "☀   ENABLE FULLBRIGHT",UDim2.fromOffset(14,122),UDim2.new(1,-28,0,38),ACCENT_DARK)
+                toggle.TextSize=10
+                fullbright.toggleButton=toggle
+                toggle.MouseButton1Click:Connect(function() if fullbright.enabled then stopFullbright() else startFullbright() end end)
+                local info=Instance.new("Frame")
+                info.Position=UDim2.fromOffset(14,174)
+                info.Size=UDim2.new(1,-28,0,105)
+                info.BackgroundColor3=PANEL
+                info.BorderSizePixel=0
+                info.Parent=dc
+                corner(info,11)
+                local infoStroke=Instance.new("UIStroke",info)
+                infoStroke.Color=Color3.fromRGB(48,54,80)
+                infoStroke.Transparency=0.35
+                label(info,"LIGHTING OVERRIDES",UDim2.fromOffset(12,10),UDim2.new(1,-24,0,16),8,MUTED,Enum.Font.GothamBold)
+                label(info,"• Bright ambient and outdoor lighting\n• Reduced fog and global shadows\n• Daytime lighting (14:00)\n• Original lighting restored when disabled",
+                    UDim2.fromOffset(12,31),UDim2.new(1,-24,0,67),8,TEXT,Enum.Font.Gotham)
+                dc.Destroying:Connect(function()
+                    if fullbright.detailDot==dot then fullbright.detailDot=nil end
+                    if fullbright.detailStatus and fullbright.detailStatus.Parent==sp then fullbright.detailStatus=nil end
+                    if fullbright.toggleButton==toggle then fullbright.toggleButton=nil end
+                end)
+                updateFullbrightUI()
             end)
         end
 
