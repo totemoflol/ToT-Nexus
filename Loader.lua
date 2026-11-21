@@ -859,7 +859,10 @@ if not entry then
                     end
                     if not targetEntry then return end
                     local uniqid = "game-" .. tostring(selected.Id)
-                    local isCurrent = getgenv().ToTNexusStartScript(uniqid, function() end)
+                    local moduleCleanup
+                    local isCurrent = getgenv().ToTNexusStartScript(uniqid, function()
+                        if type(moduleCleanup) == "function" then pcall(moduleCleanup) end
+                    end)
                     local ok, source = pcall(function() return game:HttpGet(targetEntry.Script) end)
                     if not ok or type(source) ~= "string" then
                         getgenv().ToTNexusStopScript(uniqid)
@@ -873,8 +876,12 @@ if not entry then
                         warn("[ToT Nexus] Compile error: " .. tostring(compileErr))
                         return
                     end
-                    local ran, err = pcall(fn)
-                    if not ran then warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(err)) end
+                    local ran, result = pcall(fn)
+                    if ran and type(result) == "function" then
+                        moduleCleanup = result
+                    elseif not ran then
+                        warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(result))
+                    end
                 end,
             version = VERSION,
             buildId = BUILD_ID,
@@ -1102,8 +1109,12 @@ local function executeSelectedGame(selected)
         getgenv().ToTNexusStopScript(uniqid)
         return
     end
-    local ok, err = pcall(fn)
-    if not ok then warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(err)) end
+    local ok, result = pcall(fn)
+    if ok and type(result) == "function" then
+        runningGameScripts[uniqid] = { cleanup = result }
+    elseif not ok then
+        warn("[ToT Nexus] " .. selected.Name .. " error: " .. tostring(result))
+    end
 end
 
 local okLibrary, librarySource = pcall(function()
