@@ -1,6 +1,6 @@
 -- ==================================================================================
 -- ToT Nexus | Universal Loader + branded splash UI
--- NEXUS_BUILD_ID: 2026.11.21.02
+-- NEXUS_BUILD_ID: 2026.11.21.03
 -- Detects the current game, shows its Roblox icon, plays the boot sequence,
 -- then executes the game script. All network fetches run in parallel.
 -- ==================================================================================
