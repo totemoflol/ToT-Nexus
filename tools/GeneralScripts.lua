@@ -1,10 +1,11 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.21.01
+-- NEXUS_BUILD_ID: 2026.11.21.02
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local ACCENT = Color3.fromRGB(139, 102, 255)
 local ACCENT_DARK = Color3.fromRGB(83, 63, 176)
@@ -461,6 +462,31 @@ return function(config)
         ESP = "Player ESP with team and visibility colors",
     }
 
+    -- Persist General Tools settings through the executor filesystem when available.
+    local CONFIG_FOLDER = "ToTNexus"
+    local CONFIG_PATH = CONFIG_FOLDER .. "/GeneralTools.json"
+    local loadedConfig = {}
+    local configStorageAvailable = type(readfile) == "function" and type(writefile) == "function"
+    if configStorageAvailable then
+        pcall(function()
+            if type(isfolder) == "function" and not isfolder(CONFIG_FOLDER) and type(makefolder) == "function" then makefolder(CONFIG_FOLDER)
+            elseif type(isfolder) ~= "function" and type(makefolder) == "function" then makefolder(CONFIG_FOLDER) end
+        end)
+        pcall(function()
+            if type(isfile) ~= "function" or isfile(CONFIG_PATH) then
+                local decoded = HttpService:JSONDecode(readfile(CONFIG_PATH))
+                if type(decoded) == "table" then loadedConfig = decoded end
+            end
+        end)
+    end
+    local saveConfig
+    local saveStatusLabel
+    local saveButton
+    local saveRevision = 0
+    local function updateSaveStatus(message, color)
+        if saveStatusLabel and saveStatusLabel.Parent then saveStatusLabel.Text = message; saveStatusLabel.TextColor3 = color or MUTED end
+        if saveButton and saveButton.Parent then saveButton.Text = message == "SAVED" and "✓ SAVED" or "SAVE NOW" end
+    end
     local Lighting = game:GetService("Lighting")
     local fullbright = {enabled=false, original=nil, connections={}, applying=false}
     local FULLBRIGHT_VALUES = {
@@ -499,6 +525,7 @@ return function(config)
         end
         fullbright.original=nil
         updateFullbrightUI()
+        if saveConfig then saveConfig() end
     end
     local function startFullbright()
         if fullbright.enabled then return end
@@ -518,9 +545,29 @@ return function(config)
         end
         applyFullbright()
         updateFullbrightUI()
+        if saveConfig then saveConfig() end
     end
 
-    local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=10,generation=0}
+    local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=math.clamp(math.floor(tonumber(loadedConfig.espUpdateRate) or 10),1,60),generation=0}
+    saveConfig = function()
+        if not configStorageAvailable then updateSaveStatus("SESSION ONLY", RED); return false end
+        local snapshot = {schema=1, espEnabled=activeEsp.enabled, espUpdateRate=activeEsp.updateRate, fullbrightEnabled=fullbright.enabled}
+        local ok, err = pcall(function()
+            if type(isfolder) == "function" and not isfolder(CONFIG_FOLDER) and type(makefolder) == "function" then makefolder(CONFIG_FOLDER) end
+            writefile(CONFIG_PATH, HttpService:JSONEncode(snapshot))
+        end)
+        if ok then updateSaveStatus("SAVED", GREEN); return true end
+        warn("[ToT Nexus] Could not save General Tools config: " .. tostring(err))
+        updateSaveStatus("SAVE FAILED", RED)
+        return false
+    end
+    local function queueConfigSave()
+        if not configStorageAvailable then updateSaveStatus("SESSION ONLY", RED); return end
+        saveRevision = saveRevision + 1
+        local revision = saveRevision
+        updateSaveStatus("SAVING...", CYAN)
+        task.delay(0.45, function() if revision == saveRevision and saveConfig then saveConfig() end end)
+    end
     local EC={Ally=Color3.fromRGB(75,165,255),Visible=Color3.fromRGB(91,231,151),Hidden=Color3.fromRGB(255,82,105)}
     local function updateEspUI()
         local on=activeEsp.enabled
@@ -591,6 +638,7 @@ return function(config)
         for _,c in ipairs(activeEsp.connections) do pcall(function() c:Disconnect() end) end; table.clear(activeEsp.connections)
         for p in pairs(activeEsp.playerConnections) do untrack(p) end
         for p in pairs(activeEsp.highlights) do clearPlayer(p) end; updateEspUI()
+        if saveConfig then saveConfig() end
     end
     local function startEsp()
         if activeEsp.enabled then return end
@@ -599,11 +647,16 @@ return function(config)
         ec(Players.PlayerAdded,track); ec(Players.PlayerRemoving,untrack)
         ec(LocalPlayer:GetPropertyChangedSignal("Team"),refresh); ec(LocalPlayer:GetPropertyChangedSignal("TeamColor"),refresh)
         refresh(); updateEspUI()
+        if saveConfig then saveConfig() end
         task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then applyPlayer(p); visibility(p) end end; task.wait(1/activeEsp.updateRate) end end)
         task.spawn(function() while activeEsp.enabled and activeEsp.generation==gen do task.wait(7); if activeEsp.enabled and activeEsp.generation==gen then refresh() end end end)
     end
     gui.Destroying:Connect(stopEsp)
     gui.Destroying:Connect(stopFullbright)
+
+    -- Restore the last saved settings before the tool cards are rendered.
+    if loadedConfig.fullbrightEnabled == true then startFullbright() end
+    if loadedConfig.espEnabled == true then startEsp() end
 
     local function renderDetails(gameInfo)
         selected = gameInfo
@@ -682,7 +735,11 @@ return function(config)
             local content = newContent()
             label(content, "GENERAL TOOLS", UDim2.fromOffset(17, 17), UDim2.new(1, -34, 0, 22), 16, TEXT, Enum.Font.GothamBold)
             label(content, "Small utilities that work independently of game modules", UDim2.fromOffset(18, 41), UDim2.new(1, -36, 0, 26), 8, MUTED, Enum.Font.Gotham)
-            local count = label(content, "2 TOOLS", UDim2.new(0, 18, 0, 76), UDim2.new(1, -36, 0, 13), 8, CYAN, Enum.Font.GothamBold)
+            local count = label(content, "2 TOOLS", UDim2.new(0, 18, 0, 76), UDim2.new(0, 70, 0, 13), 8, CYAN, Enum.Font.GothamBold)
+            saveStatusLabel = label(content, configStorageAvailable and "AUTO-SAVE READY" or "SESSION ONLY · NO FILE API", UDim2.new(0, 91, 0, 76), UDim2.new(1, -190, 0, 13), 7, configStorageAvailable and GREEN or RED, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+            saveButton = makeButton(content, "SAVE NOW", UDim2.new(1, -91, 0, 69), UDim2.fromOffset(77, 25), PANEL3)
+            saveButton.TextSize = 7
+            saveButton.MouseButton1Click:Connect(function() if saveConfig then saveConfig() end end)
 
             local toolCard = Instance.new("TextButton")
             toolCard.Name = "Tool_ESP"
@@ -775,7 +832,7 @@ return function(config)
                 local box=Instance.new("TextBox"); box.Position=UDim2.new(1,-76,0,61); box.Size=UDim2.fromOffset(62,30); box.BackgroundColor3=PANEL3; box.BorderSizePixel=0; box.Text=tostring(activeEsp.updateRate); box.PlaceholderText="1-60"; box.ClearTextOnFocus=false; box.Font=Enum.Font.GothamBold; box.TextSize=11; box.TextColor3=TEXT; box.Parent=panel; corner(box,7)
                 label(panel,"1",UDim2.fromOffset(12,89),UDim2.fromOffset(20,13),7,MUTED,Enum.Font.Gotham)
                 label(panel,"60 checks/sec max",UDim2.new(1,-126,0,89),UDim2.fromOffset(112,13),7,MUTED,Enum.Font.Gotham,Enum.TextXAlignment.Right)
-                local function setRate(v) v=math.clamp(math.floor(tonumber(v) or activeEsp.updateRate),1,60); activeEsp.updateRate=v; local a=(v-1)/59; fill.Size=UDim2.new(a,0,1,0); knob.Position=UDim2.new(a,0,0.5,0); box.Text=tostring(v) end
+                local function setRate(v) v=math.clamp(math.floor(tonumber(v) or activeEsp.updateRate),1,60); if activeEsp.updateRate==v then box.Text=tostring(v); return end; activeEsp.updateRate=v; local a=(v-1)/59; fill.Size=UDim2.new(a,0,1,0); knob.Position=UDim2.new(a,0,0.5,0); box.Text=tostring(v); queueConfigSave() end
                 local dragging=false; local cons={}
                 local function bind(sig,fn) table.insert(cons,sig:Connect(fn)) end
                 local function moveTo(x) local a=math.clamp((x-track.AbsolutePosition.X)/math.max(track.AbsoluteSize.X,1),0,1); setRate(1+a*59) end
