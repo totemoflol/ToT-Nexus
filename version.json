@@ -1,10 +1,10 @@
 {
-  "version": "3.20",
-  "build": "2026.11.20.13",
+  "version": "3.21",
+  "build": "2026.11.21.01",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.20.13",
-    "GeneralScripts": "2026.11.20.13"
+    "Loader": "2026.11.21.01",
+    "GeneralScripts": "2026.11.21.01"
   },
-  "notes": "Advanced Team ESP is integrated directly into General Tools with in-page settings and live active status."
+  "notes": "Added integrated Fullbright to General Tools with live status, Infinite Yield-style Lighting overrides, and original lighting restoration."
 }
