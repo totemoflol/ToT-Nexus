@@ -1,10 +1,10 @@
 {
-  "version": "3.25",
-  "build": "2026.11.21.05",
+  "version": "3.26",
+  "build": "2026.11.21.06",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.21.05",
+    "Loader": "2026.11.21.06",
     "GeneralScripts": "2026.11.21.05"
   },
-  "notes": "Closing the library now runs the close cleanup hook, stops catalog game modules, and destroys active General Tools effects (ESP, Fullbright and Hitbox Expander)."
+  "notes": "Re-executing the loader now cleans up the previous library UI, active General Tools effects, and registered game modules before mounting the new session."
 }
