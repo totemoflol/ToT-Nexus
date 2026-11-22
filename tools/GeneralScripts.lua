@@ -554,10 +554,10 @@ return function(config)
         if saveConfig then saveConfig() end
     end
 
-    local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=math.clamp(math.floor(tonumber(loadedConfig.espUpdateRate) or 10),1,60),visibilityOrigin=(loadedConfig.espVisibilityOrigin=="Torso" or loadedConfig.espVisibilityOrigin=="Camera") and loadedConfig.espVisibilityOrigin or "Head",generation=0}
+    local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=math.clamp(math.floor(tonumber(loadedConfig.espUpdateRate) or 10),1,60),visibilityOrigin=(loadedConfig.espVisibilityOrigin=="Torso" or loadedConfig.espVisibilityOrigin=="Camera") and loadedConfig.espVisibilityOrigin or "Head",allyColorHex=type(loadedConfig.espAllyColor)=="string" and loadedConfig.espAllyColor or "4BA5FF",visibleColorHex=type(loadedConfig.espVisibleColor)=="string" and loadedConfig.espVisibleColor or "5BE797",hiddenColorHex=type(loadedConfig.espHiddenColor)=="string" and loadedConfig.espHiddenColor or "FF5269",generation=0}
     saveConfig = function()
         if not configStorageAvailable then updateSaveStatus("SESSION ONLY", RED); return false end
-        local snapshot = {schema=1, espEnabled=activeEsp.enabled, espUpdateRate=activeEsp.updateRate, espVisibilityOrigin=activeEsp.visibilityOrigin, fullbrightEnabled=fullbright.enabled}
+        local snapshot = {schema=1, espEnabled=activeEsp.enabled, espUpdateRate=activeEsp.updateRate, espVisibilityOrigin=activeEsp.visibilityOrigin, espAllyColor=activeEsp.allyColorHex, espVisibleColor=activeEsp.visibleColorHex, espHiddenColor=activeEsp.hiddenColorHex, fullbrightEnabled=fullbright.enabled}
         local ok, err = pcall(function()
             if type(isfolder) == "function" and not isfolder(CONFIG_FOLDER) and type(makefolder) == "function" then makefolder(CONFIG_FOLDER) end
             writefile(CONFIG_PATH, HttpService:JSONEncode(snapshot))
@@ -574,7 +574,21 @@ return function(config)
         updateSaveStatus("SAVING...", CYAN)
         task.delay(0.45, function() if revision == saveRevision and saveConfig then saveConfig() end end)
     end
-    local EC={Ally=Color3.fromRGB(75,165,255),Visible=Color3.fromRGB(91,231,151),Hidden=Color3.fromRGB(255,82,105)}
+    local function colorFromHex(value, fallback)
+        if type(value)~="string" then return fallback end
+        local clean=string.gsub(value,"#","")
+        if #clean~=6 or not string.match(clean,"^%x%x%x%x%x%x$") then return fallback end
+        local r=tonumber(string.sub(clean,1,2),16)
+        local g=tonumber(string.sub(clean,3,4),16)
+        local b=tonumber(string.sub(clean,5,6),16)
+        return Color3.fromRGB(r,g,b)
+    end
+    local EC={
+        Ally=colorFromHex(activeEsp.allyColorHex,Color3.fromRGB(75,165,255)),
+        Visible=colorFromHex(activeEsp.visibleColorHex,Color3.fromRGB(91,231,151)),
+        Hidden=colorFromHex(activeEsp.hiddenColorHex,Color3.fromRGB(255,82,105)),
+    }
+
     local function updateEspUI()
         local on=activeEsp.enabled
         if activeEsp.statusDot and activeEsp.statusDot.Parent then activeEsp.statusDot.BackgroundColor3=on and GREEN or RED end
@@ -638,6 +652,15 @@ return function(config)
         end
         local params=RaycastParams.new(); params.FilterType=Enum.RaycastFilterType.Exclude; params.IgnoreWater=true
         for _,i in ipairs(r.items) do if i.part.Parent and i.highlight.Parent then local ex=character and {character} or {}; colorPart(i,canSee(origin,i.part,r.character,params,ex) and EC.Visible or EC.Hidden) end end
+    end
+    local function refreshEspColors()
+        for player in pairs(activeEsp.highlights) do
+            if ally(player) then
+                for _,item in ipairs(activeEsp.highlights[player].items) do colorPart(item,EC.Ally) end
+            else
+                visibility(player)
+            end
+        end
     end
     local function refresh() for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then applyPlayer(p) end end end
     local function untrack(p) clearPlayer(p); for _,c in ipairs(activeEsp.playerConnections[p] or {}) do pcall(function() c:Disconnect() end) end; activeEsp.playerConnections[p]=nil end
@@ -942,7 +965,7 @@ return function(config)
                 activeEsp.detailStatus=label(sp,"",UDim2.fromOffset(30,0),UDim2.new(1,-42,1,0),8,MUTED,Enum.Font.GothamBold)
                 local toggle=makeButton(dc,activeEsp.enabled and "■   DISABLE ESP" or "▶   ENABLE ESP",UDim2.fromOffset(14,122),UDim2.new(1,-28,0,38),ACCENT_DARK); toggle.TextSize=10; activeEsp.toggleButton=toggle
                 toggle.MouseButton1Click:Connect(function() if activeEsp.enabled then stopEsp() else startEsp() end end)
-                local panel=Instance.new("Frame"); panel.Position=UDim2.fromOffset(14,171); panel.Size=UDim2.new(1,-28,0,205); panel.BackgroundColor3=PANEL; panel.BorderSizePixel=0; panel.Parent=dc; corner(panel,11)
+                local panel=Instance.new("Frame"); panel.Position=UDim2.fromOffset(14,171); panel.Size=UDim2.new(1,-28,0,332); panel.BackgroundColor3=PANEL; panel.BorderSizePixel=0; panel.Parent=dc; corner(panel,11)
                 local outline=Instance.new("UIStroke",panel); outline.Color=Color3.fromRGB(48,54,80); outline.Transparency=0.35
                 label(panel,"VISIBILITY CHECK RATE",UDim2.fromOffset(12,10),UDim2.new(1,-24,0,16),8,MUTED,Enum.Font.GothamBold)
                 label(panel,"Higher values update more frequently but use more CPU.",UDim2.fromOffset(12,29),UDim2.new(1,-24,0,25),7,MUTED,Enum.Font.Gotham)
@@ -985,6 +1008,51 @@ return function(config)
                 end
                 updateOriginButtons()
                 label(panel,"Visibility rays start from your selected body point.",UDim2.fromOffset(12,175),UDim2.new(1,-24,0,18),7,MUTED,Enum.Font.Gotham)
+                label(panel,"ESP COLORS  ·  HEX",UDim2.fromOffset(12,202),UDim2.new(1,-24,0,14),8,CYAN,Enum.Font.GothamBold)
+                local colorRows={
+                    {key="allyColorHex",label="ALLY",colorKey="Ally",y=224},
+                    {key="visibleColorHex",label="EXPOSED ENEMY",colorKey="Visible",y=258},
+                    {key="hiddenColorHex",label="HIDDEN ENEMY",colorKey="Hidden",y=292},
+                }
+                local colorInputs={}
+                for _,row in ipairs(colorRows) do
+                    label(panel,row.label,UDim2.fromOffset(12,row.y),UDim2.new(0,112,0,26),7,MUTED,Enum.Font.GothamBold)
+                    local swatch=Instance.new("Frame")
+                    swatch.Position=UDim2.new(1,-105,0,row.y+1)
+                    swatch.Size=UDim2.fromOffset(18,24)
+                    swatch.BackgroundColor3=EC[row.colorKey]
+                    swatch.BorderSizePixel=0
+                    swatch.Parent=panel
+                    corner(swatch,5)
+                    local input=Instance.new("TextBox")
+                    input.Position=UDim2.new(1,-80,0,row.y)
+                    input.Size=UDim2.fromOffset(68,26)
+                    input.BackgroundColor3=PANEL3
+                    input.BorderSizePixel=0
+                    input.Text="#"..activeEsp[row.key]
+                    input.PlaceholderText="#RRGGBB"
+                    input.ClearTextOnFocus=false
+                    input.Font=Enum.Font.GothamBold
+                    input.TextSize=9
+                    input.TextColor3=TEXT
+                    input.Parent=panel
+                    corner(input,6)
+                    colorInputs[row.key]=input
+                    input.FocusLost:Connect(function()
+                        local clean=string.gsub(input.Text,"#","")
+                        if #clean~=6 or not string.match(clean,"^%x%x%x%x%x%x$") then
+                            input.Text="#"..activeEsp[row.key]
+                            return
+                        end
+                        clean=string.upper(clean)
+                        activeEsp[row.key]=clean
+                        EC[row.colorKey]=colorFromHex(clean,EC[row.colorKey])
+                        input.Text="#"..clean
+                        swatch.BackgroundColor3=EC[row.colorKey]
+                        refreshEspColors()
+                        queueConfigSave()
+                    end)
+                end
                 dc.Destroying:Connect(function() for _,c in ipairs(cons) do pcall(function() c:Disconnect() end) end; if activeEsp.detailStatus and activeEsp.detailStatus.Parent==sp then activeEsp.detailStatus=nil end; if activeEsp.detailDot==dot then activeEsp.detailDot=nil end; if activeEsp.toggleButton==toggle then activeEsp.toggleButton=nil end end)
                 updateEspUI()
             end)
