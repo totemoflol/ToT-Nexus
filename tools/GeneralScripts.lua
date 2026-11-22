@@ -616,13 +616,37 @@ return function(config)
             end
         end
     end
+    local function isThinOccluder(part, direction)
+        if not part or not part:IsA("BasePart") then return false end
+        -- Estimate the part's thickness along this ray, rather than using its
+        -- smallest world dimension (which misclassifies rotated fence pieces).
+        local unit = direction.Unit
+        local cf = part.CFrame
+        local size = part.Size
+        local depth =
+            math.abs(unit:Dot(cf.RightVector)) * size.X +
+            math.abs(unit:Dot(cf.UpVector)) * size.Y +
+            math.abs(unit:Dot(cf.LookVector)) * size.Z
+        return depth <= 0.45
+    end
+
     local function rayVisible(origin,point,char,params,excluded)
         local dir=point-origin
-        for n=1,4 do
-            params.FilterDescendantsInstances=excluded; local hit=workspace:Raycast(origin,dir,params)
+        for n=1,8 do
+            params.FilterDescendantsInstances=excluded
+            local hit=workspace:Raycast(origin,dir,params)
             if not hit or hit.Instance:IsDescendantOf(char) then return true end
             local b=hit.Instance
-            if n<4 and b:IsA("BasePart") and (b.Transparency>=0.55 or b.Material==Enum.Material.Glass) then table.insert(excluded,b) else return false end
+            local passThrough = b:IsA("BasePart") and (
+                b.Transparency>=0.55 or
+                b.Material==Enum.Material.Glass or
+                isThinOccluder(b,dir)
+            )
+            if passThrough and n<8 then
+                table.insert(excluded,b)
+            else
+                return false
+            end
         end
         return false
     end
