@@ -1,10 +1,10 @@
 {
-  "version": "3.28",
-  "build": "2026.11.22.01",
+  "version": "3.29",
+  "build": "2026.11.22.02",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.22.01",
-    "GeneralScripts": "2026.11.22.01"
+    "Loader": "2026.11.22.02",
+    "GeneralScripts": "2026.11.22.02"
   },
-  "notes": "Advanced Team ESP now has editable Ally, Exposed Enemy, and Hidden Enemy colors using hex inputs; changes apply live and persist in General Tools config."
+  "notes": "Hitbox Expander settings now persist across executions, and expanded target parts display cyan hitbox bounds."
 }
