@@ -486,6 +486,7 @@ return function(config)
         end)
     end
     local saveConfig
+    local hitbox
     local saveStatusLabel
     local saveButton
     local saveRevision = 0
@@ -694,7 +695,7 @@ return function(config)
     -- Client-side hitbox size preview. Changes are local to this client and do not
     -- alter server-authoritative hit detection in other experiences.
     local hitboxTarget = (loadedConfig.hitboxTarget=="Body" or loadedConfig.hitboxTarget=="Head" or loadedConfig.hitboxTarget=="Torso") and loadedConfig.hitboxTarget or "Root"
-    local hitbox = {enabled=false, target=hitboxTarget, scale=math.clamp(tonumber(loadedConfig.hitboxScale) or 2,1,8), rootSize=math.clamp(tonumber(loadedConfig.hitboxRootSize) or 15,3,20), teamCheck=loadedConfig.hitboxTeamCheck==true, originals={}, visuals={}, generation=0}
+    hitbox = {enabled=false, target=hitboxTarget, scale=math.clamp(tonumber(loadedConfig.hitboxScale) or 2,1,8), rootSize=math.clamp(tonumber(loadedConfig.hitboxRootSize) or 15,3,20), teamCheck=loadedConfig.hitboxTeamCheck==true, originals={}, visuals={}, generation=0}
     local function isHitboxPart(part)
         if not part:IsA("BasePart") then return false end
         if hitbox.target=="Root" then return part.Name=="HumanoidRootPart" end
