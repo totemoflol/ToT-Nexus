@@ -56,8 +56,8 @@ end
 cleanupPreviousSession()
 NexusEnv.ToTNexusSessionCleanup = cleanupPreviousSession
 
-local VERSION = "1.29"
-local BUILD_ID = "2026.11.22.02"
+local VERSION = "1.30"
+local BUILD_ID = "2026.11.22.03"
 
 local BASE = "https://raw.githubusercontent.com/totemoflol/ToT-Nexus/main"
 
