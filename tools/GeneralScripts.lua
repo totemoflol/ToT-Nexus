@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.21.07
+-- NEXUS_BUILD_ID: 2026.11.22.02
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
@@ -557,7 +557,7 @@ return function(config)
     local activeEsp={enabled=false,highlights={},playerConnections={},connections={},updateRate=math.clamp(math.floor(tonumber(loadedConfig.espUpdateRate) or 10),1,60),visibilityOrigin=(loadedConfig.espVisibilityOrigin=="Torso" or loadedConfig.espVisibilityOrigin=="Camera") and loadedConfig.espVisibilityOrigin or "Head",allyColorHex=type(loadedConfig.espAllyColor)=="string" and loadedConfig.espAllyColor or "4BA5FF",visibleColorHex=type(loadedConfig.espVisibleColor)=="string" and loadedConfig.espVisibleColor or "5BE797",hiddenColorHex=type(loadedConfig.espHiddenColor)=="string" and loadedConfig.espHiddenColor or "FF5269",generation=0}
     saveConfig = function()
         if not configStorageAvailable then updateSaveStatus("SESSION ONLY", RED); return false end
-        local snapshot = {schema=1, espEnabled=activeEsp.enabled, espUpdateRate=activeEsp.updateRate, espVisibilityOrigin=activeEsp.visibilityOrigin, espAllyColor=activeEsp.allyColorHex, espVisibleColor=activeEsp.visibleColorHex, espHiddenColor=activeEsp.hiddenColorHex, fullbrightEnabled=fullbright.enabled}
+        local snapshot = {schema=1, espEnabled=activeEsp.enabled, espUpdateRate=activeEsp.updateRate, espVisibilityOrigin=activeEsp.visibilityOrigin, espAllyColor=activeEsp.allyColorHex, espVisibleColor=activeEsp.visibleColorHex, espHiddenColor=activeEsp.hiddenColorHex, fullbrightEnabled=fullbright.enabled, hitboxEnabled=hitbox.enabled, hitboxTarget=hitbox.target, hitboxScale=hitbox.scale, hitboxRootSize=hitbox.rootSize, hitboxTeamCheck=hitbox.teamCheck}
         local ok, err = pcall(function()
             if type(isfolder) == "function" and not isfolder(CONFIG_FOLDER) and type(makefolder) == "function" then makefolder(CONFIG_FOLDER) end
             writefile(CONFIG_PATH, HttpService:JSONEncode(snapshot))
@@ -693,7 +693,8 @@ return function(config)
     end
     -- Client-side hitbox size preview. Changes are local to this client and do not
     -- alter server-authoritative hit detection in other experiences.
-    local hitbox = {enabled=false, target="Root", scale=2, rootSize=15, teamCheck=false, originals={}, generation=0}
+    local hitboxTarget = (loadedConfig.hitboxTarget=="Body" or loadedConfig.hitboxTarget=="Head" or loadedConfig.hitboxTarget=="Torso") and loadedConfig.hitboxTarget or "Root"
+    local hitbox = {enabled=false, target=hitboxTarget, scale=math.clamp(tonumber(loadedConfig.hitboxScale) or 2,1,8), rootSize=math.clamp(tonumber(loadedConfig.hitboxRootSize) or 15,3,20), teamCheck=loadedConfig.hitboxTeamCheck==true, originals={}, visuals={}, generation=0}
     local function isHitboxPart(part)
         if not part:IsA("BasePart") then return false end
         if hitbox.target=="Root" then return part.Name=="HumanoidRootPart" end
@@ -716,10 +717,31 @@ return function(config)
             end
         end)
     end
+    local function removeHitboxVisual(part)
+        local visual=hitbox.visuals[part]
+        if visual then pcall(function() visual:Destroy() end); hitbox.visuals[part]=nil end
+    end
+    local function updateHitboxVisual(part)
+        local visual=hitbox.visuals[part]
+        if not visual or not visual.Parent then
+            visual=Instance.new("BoxHandleAdornment")
+            visual.Name="ToTNexus_HitboxBounds"
+            visual.Adornee=part
+            visual.AlwaysOnTop=true
+            visual.ZIndex=10
+            visual.Color3=Color3.fromRGB(55,225,255)
+            visual.Transparency=0.38
+            visual.Parent=workspace
+            hitbox.visuals[part]=visual
+        end
+        visual.Size=part.Size
+    end
     local function restoreHitboxes()
         for part,original in pairs(hitbox.originals) do
             restoreHitboxPart(part,original)
+            removeHitboxVisual(part)
         end
+        for part in pairs(hitbox.visuals) do removeHitboxVisual(part) end
         table.clear(hitbox.originals)
     end
     local function applyHitboxes()
@@ -745,14 +767,15 @@ return function(config)
                         pcall(function()
                             part.Size=original.RootStyle and Vector3.new(hitbox.rootSize,hitbox.rootSize,hitbox.rootSize) or original.Size*hitbox.scale
                             if original.RootStyle then
-                                -- Match the reference's visible, non-collidable root hitbox,
-                                -- but retain every original property for exact restoration.
+                                -- Keep the translucent root styling; cyan bounds make the
+                                -- expanded volume obvious for every target mode.
                                 part.Transparency=0.9
                                 part.Color=Color3.fromRGB(12,12,12)
                                 part.Material=Enum.Material.Neon
                                 part.CanCollide=false
                             end
                         end)
+                        updateHitboxVisual(part)
                     end
                 end
             end
@@ -760,6 +783,7 @@ return function(config)
         for part,original in pairs(hitbox.originals) do
             if not seen[part] then
                 restoreHitboxPart(part,original)
+                removeHitboxVisual(part)
                 hitbox.originals[part]=nil
             end
         end
@@ -774,6 +798,7 @@ return function(config)
         if hitbox.detailStatus and hitbox.detailStatus.Parent then hitbox.detailStatus.Text="HITBOX PREVIEW IS OFF"; hitbox.detailStatus.TextColor3=MUTED end
         if hitbox.detailDot and hitbox.detailDot.Parent then hitbox.detailDot.BackgroundColor3=RED end
         if hitbox.toggleButton and hitbox.toggleButton.Parent then hitbox.toggleButton.Text="▶   ENABLE HITBOX PREVIEW"; hitbox.toggleButton.BackgroundColor3=ACCENT_DARK end
+        if saveConfig then saveConfig() end
     end
     local function startHitbox()
         if hitbox.enabled then return end
@@ -792,6 +817,7 @@ return function(config)
                 task.wait(1)
             end
         end)
+        if saveConfig then saveConfig() end
     end
     gui.Destroying:Connect(stopHitbox)
     gui.Destroying:Connect(function() stopEsp(true) end)
@@ -800,6 +826,7 @@ return function(config)
     -- Restore the last saved settings before the tool cards are rendered.
     if loadedConfig.fullbrightEnabled == true then startFullbright() end
     if loadedConfig.espEnabled == true then startEsp() end
+    if loadedConfig.hitboxEnabled == true then startHitbox() end
 
     local function renderDetails(gameInfo)
         selected = gameInfo
@@ -1156,6 +1183,7 @@ return function(config)
                         updateTargetButtons()
                         if sizeBox then sizeBox.Text=hitbox.target=="Root" and tostring(hitbox.rootSize).."s" or tostring(hitbox.scale).."x" end
                         if hitbox.enabled then applyHitboxes() end
+                        if saveConfig then saveConfig() end
                     end)
                 end
                 updateTargetButtons()
@@ -1183,6 +1211,7 @@ return function(config)
                         sizeBox.Text=string.format("%.1fx",hitbox.scale)
                     end
                     if hitbox.enabled then restoreHitboxes(); applyHitboxes() end
+                    if saveConfig then saveConfig() end
                 end)
                 local teamButton=makeButton(panel,hitbox.teamCheck and "TEAM CHECK: ON" or "TEAM CHECK: OFF",UDim2.fromOffset(12,146),UDim2.new(1,-24,0,29),hitbox.teamCheck and ACCENT_DARK or PANEL3)
                 teamButton.TextSize=8
@@ -1191,6 +1220,7 @@ return function(config)
                     teamButton.Text=hitbox.teamCheck and "TEAM CHECK: ON" or "TEAM CHECK: OFF"
                     teamButton.BackgroundColor3=hitbox.teamCheck and ACCENT_DARK or PANEL3
                     if hitbox.enabled then applyHitboxes() end
+                    if saveConfig then saveConfig() end
                 end)
                 label(panel,"Root mode uses a 15-stud-style expandable HRP with a translucent Neon visual. Teammates are skipped when Team Check is on. Client-side only; server hit detection may not change.",UDim2.fromOffset(12,182),UDim2.new(1,-24,0,38),7,MUTED,Enum.Font.Gotham)
                 dc.Destroying:Connect(function()
