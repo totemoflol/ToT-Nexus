@@ -1,10 +1,10 @@
 {
-  "version": "1.29",
-  "build": "2026.11.22.02",
+  "version": "1.30",
+  "build": "2026.11.22.03",
   "channel": "main",
   "components": {
-    "Loader": "2026.11.22.02",
-    "GeneralScripts": "2026.11.22.02"
+    "Loader": "2026.11.22.03",
+    "GeneralScripts": "2026.11.22.03"
   },
-  "notes": "Hitbox Expander settings now persist across executions, and expanded target parts display cyan hitbox bounds."
+  "notes": "ESP visibility now skips thin fence and railing geometry while retaining solid cover occlusion."
 }
