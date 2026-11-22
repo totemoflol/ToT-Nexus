@@ -1,5 +1,5 @@
 -- ToT Nexus | Nexus UI v2
--- NEXUS_BUILD_ID: 2026.11.22.02
+-- NEXUS_BUILD_ID: 2026.11.22.03
 -- Animated game library with responsive layout and scoped developer tools.
 
 local TweenService = game:GetService("TweenService")
